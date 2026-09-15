@@ -1,0 +1,384 @@
+===============================================================================
+  SMARTEGG - BASE DE DATOS Y GRAFANA
+  Contexto de lo que ya existe y lo que falta
+===============================================================================
+
+  Este documento es para quien arma la capa de datos y la observabilidad.
+  La idea es que no tengas que leer todo el backend para saber donde encaja
+  tu parte.
+
+  Puntos que dependen de esta capa: 20 de los 100 (criterios 4.1, 4.2, 6.1
+  y 6.2 de la rubrica).
+
+
+===============================================================================
+  1. LO PRIMERO: LEVANTAR TU PROPIO ENTORNO
+===============================================================================
+
+  No necesitas Atlas ni la maquina de nadie mas. Todo esta en el repo.
+
+      git pull
+      cd Proyecto_1/infra
+      cp .env.example .env
+      ./plataforma.sh arriba
+
+  Con eso tenes tu propio MongoDB en localhost:27017, base "smartegg",
+  sin usuario ni contrasena, sin autorizar IPs y sin depender de internet.
+
+  Detalles completos en Proyecto_1/infra/COMO-LEVANTAR.txt
+
+  PARA TENER DATOS CON LOS QUE TRABAJAR
+  -------------------------------------
+  El simulador del nodo genera lecturas realistas por el pipeline de verdad
+  (serial -> parser -> repositorios -> Mongo), no datos inventados a mano.
+
+  Terminal 1:
+
+      cd Proyecto_1/Backend
+      python -u tools/fake_serial.py --intervalo 1 --escenario alarma --puerta-cada 8
+
+  Imprime un puerto virtual, algo como /dev/pts/6. Copialo.
+
+  Terminal 2:
+
+      SERIAL_PORT=/dev/pts/6 SERIAL_AUTO_DETECT=false \
+      MONGO_URI=mongodb://localhost:27017 MQTT_HOST=localhost FLASK_PORT=5001 \
+      python run.py
+
+  En un minuto tenes decenas de lecturas, alarmas y eventos de puerta.
+
+  Nota: el backend va en el anfitrion, no en Docker, porque el contenedor
+  no puede ver un /dev/pts creado afuera. Los demas servicios si van en
+  Docker.
+
+  PARA INSPECCIONAR
+  -----------------
+      docker compose exec mongo mongosh smartegg
+
+  O con MongoDB Compass (interfaz grafica, mas comodo para armar
+  agregaciones): pegar la cadena
+
+      mongodb://localhost:27017
+
+  OJO: el puerto 27017 NO habla HTTP. Si abris http://localhost:27017 en el
+  navegador te responde "It looks like you are trying to access MongoDB over
+  HTTP on the native driver port". Es normal: hay que usar el prefijo
+  mongodb:// con mongosh, Compass o pymongo.
+
+
+===============================================================================
+  2. LO QUE YA EXISTE Y FUNCIONA
+===============================================================================
+
+  Backend/src/database.py
+      Capa de datos actual, en MongoDB con pymongo. Funciona, esta probada y
+      la consume todo el backend. Tiene:
+        - 23 metodos publicos (el inventario esta en la seccion 4)
+        - reconexion automatica y modo degradado: si Mongo se cae, el backend
+          NO se detiene, solo deja de persistir y reintenta
+        - creacion automatica de indices al conectar
+
+  Backend/src/serial/persistence.py
+      Envoltorio delgado que usa el lector serial. Absorbe los errores de la
+      base para que un fallo de Mongo nunca mate el hilo del serial. Tiene un
+      comentario que dice que se cambia cuando entregues src/db/.
+
+  Backend/src/db/
+      Carpeta reservada para tu capa definitiva. Hoy solo tiene un
+      __init__.py con un comentario. Esta VACIA a proposito.
+
+  Las colecciones se crean solas al primer arranque:
+      lecturas, alarmas, lotes, operadores, aperturas_puerta, usuarios
+
+  Indices que ya se crean:
+      lecturas.timestamp            descendente
+      alarmas.inicio                descendente
+      alarmas.activa                ascendente
+      aperturas_puerta.timestamp    descendente
+      aperturas_puerta.id_operador  ascendente
+      operadores.id_operador        unico
+      usuarios.username             unico
+
+  Grafana
+      Contenedor ya configurado en el compose, con el plugin
+      grafana-mqtt-datasource 1.3.6 instalado y verificado.
+      Se entra por http://localhost:8080/grafana/  (usuario admin).
+      OJO: localhost:3000 a secas da 404, porque Grafana va bajo subruta.
+
+  Proyecto_1/Grafana/provisioning/
+      Carpeta ya montada dentro del contenedor en /etc/grafana/provisioning.
+      Tiene datasources/ y dashboards/ vacias, esperando tus archivos.
+      Lo que pongas ahi se carga solo al levantar, sin importar nada a mano.
+
+
+===============================================================================
+  3. FORMA REAL DE LOS DOCUMENTOS
+===============================================================================
+
+  Esto es lo que el backend escribe hoy. Tu modelo tiene que respetarlo o
+  romper el resto del codigo.
+
+  lecturas
+      temperatura        float     grados C
+      humedad            float     porcentaje
+      sistema_encendido  bool
+      alarma             bool
+      espacios_libres    int       0 a 6
+      calefaccion        bool
+      ventilacion        bool
+      rotacion           bool
+      puerta_abierta     bool
+      node_id            string    "incubadora-01"
+      timestamp          date      UTC
+
+  alarmas
+      tipo               string    "condicion_critica"
+      severidad          string    critica | advertencia | informativa
+      mensaje            string
+      temperatura        float
+      humedad            float
+      node_id            string
+      inicio             date
+      fin                date      null mientras sigue activa
+      duracion_segundos  float     null mientras sigue activa
+      activa             bool
+      mensaje_resolucion string    solo al cerrarse
+
+  aperturas_puerta
+      accion             string    abrir | cerrar
+      id_operador        string    "OP1" | "OP2"
+      metodo             string    rfid | huella | llave | manual
+      huevos_delta       int       positivo ingreso, negativo retiro
+      huevos_ingresados  int       >= 0
+      huevos_retirados   int       >= 0
+      autorizado         bool
+      observaciones      string
+      origen             string    serial | api
+      node_id            string
+      timestamp          date
+
+  lotes
+      codigo             string    "L-001"
+      nombre_lote        string
+      cantidad_huevos    int       > 0
+      raza               string
+      responsable        string
+      observaciones      string
+      estado             string    incubando | eclosionado | descartado
+      fecha_ingreso      date
+
+  operadores
+      id_operador        string    unico, coincide con el del firmware
+      nombre             string
+      edad               int       0 a 120, puede ser null
+      genero             string    masculino | femenino | otro | no_especificado
+      rol                string    operador_1 | operador_2 | administrador
+      metodo_acceso      string    rfid | huella | llave | manual
+      activo             bool
+      fecha_registro     date
+
+  usuarios     <-- NO la toques, es de la capa de autenticacion
+      username, password_hash, rol, nombre, id_operador, activo,
+      creado_en, ultimo_acceso
+
+  El historial es append-only a proposito: lecturas, alarmas y eventos de
+  puerta no se sobrescriben nunca (criterio 4.2).
+
+
+===============================================================================
+  4. EL CONTRATO QUE TU CAPA TIENE QUE CUMPLIR
+===============================================================================
+
+  Estos 23 metodos ya los llama el resto del backend. Si src/db/ los expone
+  con la misma firma y el mismo tipo de retorno, nadie mas cambia una linea.
+
+  Lecturas
+      guardar_lectura(lectura: dict)
+      obtener_ultima_lectura()
+      obtener_historial(limit, desde, hasta)
+      obtener_lecturas_rango(desde, hasta)
+      estadisticas_rango(desde, hasta)      min, max y promedio
+
+  Alarmas
+      abrir_alarma(alarma: dict)            devuelve el doc con su id
+      cerrar_alarma(alarma_id, mensaje)     calcula duracion_segundos
+      obtener_alarma_activa()
+      obtener_alarmas_recientes(limit)
+      obtener_alarmas_rango(desde, hasta)
+
+  Lotes
+      crear_lote(lote)      listar_lotes()      obtener_lote(id)
+      actualizar_lote(id, cambios)             eliminar_lote(id)
+
+  Operadores
+      crear_operador(op)    listar_operadores() obtener_operador(id_operador)
+      actualizar_operador(id_operador, cambios) eliminar_operador(id_operador)
+
+  Puerta
+      registrar_apertura(evento)
+      listar_aperturas(limit, id_operador, desde, hasta)
+      resumen_puerta(desde, hasta, id_operador)
+
+  Utilidad
+      estado()              dict con conectado, uri y nombre de la base
+      disponible            propiedad bool
+
+  QUIEN LOS CONSUME (para que sepas que rompes si cambias algo)
+      src/serial/persistence.py     el lector serial
+      src/api/sensors.py            lecturas, estadisticas, alarmas
+      src/api/lotes.py              CRUD de lotes
+      src/api/operadores.py         CRUD de operadores
+      src/api/puerta.py             eventos y resumen
+      src/api/reports.py            reportes PDF
+      src/api/diagnostico.py        estado de la base
+      src/auth/perfil.py            diagnosticos e informes por operador
+      src/reports.py                armado de los PDF
+
+  IMPORTANTE
+  ----------
+  resumen_puerta() tiene que devolver exactamente esta forma, porque la API
+  y los PDF ya la esperan:
+
+      {
+        "veces_abierta": int,
+        "veces_cerrada": int,
+        "huevos_ingresados": int,
+        "huevos_retirados": int,
+        "por_operador": [
+          {"id_operador":..., "veces_abierta":..., "veces_cerrada":...,
+           "huevos_ingresados":..., "huevos_retirados":...}
+        ]
+      }
+
+  Y estadisticas_rango() esta:
+
+      {"temp_min":..., "temp_max":..., "temp_prom":...,
+       "hum_min":...,  "hum_max":...,  "hum_prom":...,
+       "lecturas_totales": int}       o None si no hay datos en el rango
+
+
+===============================================================================
+  5. ESTADO DE ESTA PARTE  (actualizado)
+===============================================================================
+
+  Lo de abajo YA ESTA HECHO Y PROBADO. Se dejo andando para no bloquear al
+  resto del equipo, no para quitarte el trabajo: revisalo, cambia lo que no
+  te convenza y hacelo tuyo. Si algo no te cuadra, decilo.
+
+  A. MODELO DE DATOS                                          [HECHO]
+     Docs/modelo-de-datos.md, con diagrama entidad-relacion en Mermaid
+     (se ve solo en GitHub), las 6 entidades, los indices y por que dos de
+     las relaciones son por tiempo y no por llave foranea.
+
+  B. CAPA Backend/src/db/                                     [HECHO]
+     connection.py   conexion, indices y modo degradado
+     repository.py   la clase Database con los 27 metodos + agregaciones
+     __init__.py     exporta la instancia `db`
+
+     Los 12 archivos que antes importaban `src.database` ahora importan
+     `src.db`. El modulo viejo se elimino: ya no hay dos capas de datos
+     paralelas. Probado con 52 aserciones contra un Mongo real, mas la
+     reconexion automatica (arrancar sin base, levantarla y ver que
+     reconecta sola sin reiniciar el backend).
+
+  C. QUERIES HISTORICAS                                       [HECHO]
+     serie_temporal            promedios por bloque de N minutos
+     resumen_diario            una fila por dia, cruzando con aperturas
+     conteo_alarmas_por_tipo   cuantas de cada tipo y cuanto duraron
+     actividad_por_operador    ranking por aperturas
+     estadisticas_por_lote     cruza por ventana de tiempo, no por lote_id
+                               (las lecturas no llevan lote_id: el nodo mide
+                               la incubadora, no sabe que lote hay dentro)
+
+     Expuestas en /api/historico/* y documentadas en /api/docs.
+
+  D. GRAFANA EN TIEMPO REAL                                   [HECHO]
+     Grafana/provisioning/dashboards/smartegg-tiempo-real.json
+     Cinco paneles sobre el datasource MQTT: temperatura, humedad,
+     actuadores, alarmas y eventos de puerta. Verificado recibiendo
+     mensajes reales en los cinco topicos.
+
+  E. GRAFANA HISTORICO                                        [HECHO]
+     Grafana/provisioning/dashboards/smartegg-historico.json
+     Cinco paneles sobre la API: series de temperatura y humedad con banda
+     min-max, alarmas por tipo, actividad por operador y resumen diario.
+     Con dos variables (cada cuantos minutos agrupar, cuantos dias resumir)
+     y respetando el selector de tiempo de Grafana.
+
+  F. DASHBOARDS Y DATASOURCES PROVISIONADOS                   [HECHO]
+     Grafana/provisioning/. Se cargan solos al levantar: en la defensa no
+     hay que importar nada a mano.
+
+  LO QUE SIGUE SIENDO TUYO
+  ------------------------
+  * Revisar que los paneles muestren lo que el enunciado pide, y ajustar
+    umbrales, unidades y titulos a tu criterio.
+  * Decidir lo de la seccion 6 (esto es lo importante).
+  * Si agregas o cambias paneles desde la interfaz, exportarlos
+    (Share > Export > Save to file) y reemplazar el .json. Si no, el cambio
+    vive solo en tu volumen y se pierde.
+
+
+===============================================================================
+  6. EL PROBLEMA QUE HAY QUE DECIDIR PRIMERO
+===============================================================================
+
+  Grafana NO tiene datasource gratuito para MongoDB: el oficial es solo
+  Enterprise. Los paneles en tiempo real por MQTT no tienen problema, pero
+  los HISTORICOS (criterio 6.2, 5 pts) necesitan una salida. Y el criterio
+  4.1 pide "modelo relacional, normalizado", que con Mongo es discutible.
+
+  Son unos 10 puntos en juego. Hay dos caminos:
+
+  OPCION 1 - Seguir en Mongo y usar el plugin Infinity
+      Grafana lee la API REST en vez de la base. Los endpoints ya existen
+      y devuelven JSON listo para graficar:
+
+        GET /api/sensores/estadisticas?desde=&hasta=   min/max/promedio
+        GET /api/sensores/historial?limit=&desde=&hasta=
+        GET /api/sensores/alarmas?limit=
+        GET /api/puerta/resumen?desde=&hasta=          conteos de puerta
+        GET /api/puerta/eventos?desde=&hasta=
+
+      Dentro de Docker el host es "backend", puerto 5000.
+      A favor: no hay que rehacer nada, se puede empezar hoy.
+      En contra: no son "consultas a la base" en sentido estricto, y el
+      criterio 4.1 puede costar puntos.
+
+  OPCION 2 - Cambiar a PostgreSQL
+      Grafana lo lee nativo y cumple 4.1 y 6.2 sin discusion.
+      En contra: hay que rehacer src/database.py, persistence.py,
+      src/auth/repository.py y el servicio de base del compose. Cuanto mas
+      se tarde en decidir, mas caro sale.
+
+  RECOMENDACION: preguntar al catedratico o a los auxiliares si Mongo con
+  Infinity les sirve para el criterio 6.2. Si dicen que no, cambiar a
+  Postgres cuanto antes.
+
+  Mientras se decide, el trabajo del modelo E-R y los repositorios sirve
+  igual: un diseno de colecciones bien normalizado se traduce a tablas casi
+  directo.
+
+
+===============================================================================
+  7. RESPALDOS
+===============================================================================
+
+  Antes de la defensa, y cada vez que tengas datos que valga la pena
+  conservar:
+
+      cd Proyecto_1/infra
+      docker compose exec -T mongo mongodump --db=smartegg --archive > datos.archive
+
+  Restaurar (por ejemplo para pasarte los datos que genero otra persona con
+  el Arduino real):
+
+      docker compose exec -T mongo mongorestore --archive --drop < datos.archive
+
+  Los .archive NO se suben al repositorio: pasenlos por Drive.
+
+  Y NUNCA corras "docker compose down -v": ese -v borra el volumen
+  smartegg_mongo_data y con el todo el historial, mas los dashboards de
+  Grafana y su clave de admin. Para apagar usa ./plataforma.sh abajo
+
+===============================================================================
