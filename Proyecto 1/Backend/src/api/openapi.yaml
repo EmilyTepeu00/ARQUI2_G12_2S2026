@@ -1,0 +1,1433 @@
+openapi: 3.0.3
+
+info:
+  title: SmartEgg API
+  version: "2.0.0"
+  description: |
+    API REST de la plataforma IoT SmartEgg (Proyecto 1).
+
+    Este documento define la interfaz que consume el frontend. Es la referencia
+    unica de rutas, cuerpos, respuestas y codigos de estado.
+
+    ## Separacion REST / MQTT
+
+    | Va por REST (este documento) | Va por MQTT (broker) |
+    |---|---|
+    | CRUD de lotes, operadores y usuarios | Telemetria continua del nodo |
+    | Consultas historicas y estadisticas | Alarmas criticas en tiempo real |
+    | Login, roles y perfiles | Estado de actuadores |
+    | Generacion de reportes PDF | Disponibilidad del nodo (LWT) |
+
+    Las alarmas **no** se consultan por polling HTTP: el frontend se suscribe a
+    `smartegg/{node_id}/alarmas/critica` por WebSocket (puerto 9001).
+    El catalogo de topics vive en `GET /api/diagnostico/mqtt/topics`.
+
+    ## Autenticacion
+
+    1. `POST /api/auth/login` devuelve un JWT.
+    2. Enviarlo en cada peticion protegida: `Authorization: Bearer <token>`.
+
+    Roles: `administrador`, `operador_1`, `operador_2`.
+    Un operador solo puede consultar **sus propios** diagnosticos e informes;
+    el administrador puede consultar los de cualquiera.
+
+    Los endpoints de telemetria de solo lectura son publicos a proposito, para
+    que Grafana y las visualizaciones (p5.js / Chart.js) consuman datos reales.
+
+servers:
+  - url: http://localhost:5000
+    description: Backend en la maquina local
+  - url: http://backend:5000
+    description: Backend dentro de la red de Docker Compose
+
+tags:
+  - name: Autenticacion
+    description: Login, token y administracion de usuarios
+  - name: Perfil
+    description: Diagnosticos e informes propios de cada operador
+  - name: Sensores
+    description: Telemetria del nodo, historial y estadisticas
+  - name: Lotes
+    description: Ficha de identificacion de huevos y lotes
+  - name: Operadores
+    description: Personas autorizadas a abrir la incubadora
+  - name: Puerta
+    description: Eventos de apertura y cierre con control de acceso
+  - name: Reportes
+    description: Generacion de reportes PDF
+  - name: Historico
+    description: Consultas agregadas para dashboards y reportes
+  - name: Diagnostico
+    description: Estado del serial, del broker y de la base de datos
+  - name: Sistema
+    description: Salud y descubrimiento del servicio
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /:
+    get:
+      tags: [Sistema]
+      summary: Indice del servicio
+      description: Lista los endpoints disponibles. Publico.
+      security: []
+      responses:
+        "200":
+          description: Servicio activo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proyecto: { type: string }
+                  mensaje: { type: string }
+                  node_id: { type: string }
+                  endpoints:
+                    type: array
+                    items: { type: string }
+
+  /health:
+    get:
+      tags: [Sistema]
+      summary: Salud de los componentes
+      description: |
+        Usado por el healthcheck de Docker Compose. Publico.
+        Devuelve 200 aunque el serial o la base esten caidos: el backend
+        funciona en modo degradado a proposito, nunca se detiene.
+      security: []
+      responses:
+        "200":
+          description: Estado de cada componente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  backend: { type: string, example: ok }
+                  serial: { type: boolean }
+                  mqtt: { type: boolean }
+                  base_datos: { type: boolean }
+
+  /api/openapi.json:
+    get:
+      tags: [Sistema]
+      summary: Esta misma especificacion, en JSON
+      description: Lo consume Swagger UI. Publico.
+      security: []
+      responses:
+        "200":
+          description: Documento OpenAPI 3.0
+          content:
+            application/json:
+              schema: { type: object }
+        "500":
+          description: La especificacion no se pudo leer del disco
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+
+  /api/openapi.yaml:
+    get:
+      tags: [Sistema]
+      summary: Esta misma especificacion, en YAML
+      description: |
+        Publico. Es el archivo que se importa en Postman o Insomnia
+        (Import > Link > http://localhost:5000/api/openapi.yaml).
+      security: []
+      responses:
+        "200":
+          description: Documento OpenAPI 3.0
+          content:
+            application/yaml:
+              schema: { type: string }
+        "500":
+          description: La especificacion no se pudo leer del disco
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+
+  # ----------------------------------------------------------------- Auth ---
+  /api/auth/login:
+    post:
+      tags: [Autenticacion]
+      summary: Iniciar sesion y obtener el token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: admin }
+                password: { type: string, format: password, example: admin123 }
+      responses:
+        "200":
+          description: Credenciales correctas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RespuestaLogin" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401":
+          description: Usuario o contrasena incorrectos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "403":
+          description: La cuenta esta desactivada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "503": { $ref: "#/components/responses/BaseNoDisponible" }
+
+  /api/auth/yo:
+    get:
+      tags: [Autenticacion]
+      summary: Datos del usuario dueno del token
+      responses:
+        "200":
+          description: Usuario autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/auth/cambiar-password:
+    post:
+      tags: [Autenticacion]
+      summary: Cambiar la propia contrasena
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password_actual, password_nueva]
+              properties:
+                password_actual: { type: string, format: password }
+                password_nueva:
+                  type: string
+                  format: password
+                  minLength: 6
+      responses:
+        "200":
+          description: Contrasena actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401":
+          description: Sin token, o la contrasena actual no coincide
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "503": { $ref: "#/components/responses/BaseNoDisponible" }
+
+  /api/auth/usuarios:
+    get:
+      tags: [Autenticacion]
+      summary: Listar usuarios
+      description: Solo administrador. Nunca devuelve el hash de la contrasena.
+      responses:
+        "200":
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Usuario" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+    post:
+      tags: [Autenticacion]
+      summary: Crear un usuario
+      description: Solo administrador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, rol]
+              properties:
+                username: { type: string, example: operador3 }
+                password: { type: string, format: password, minLength: 6 }
+                rol: { $ref: "#/components/schemas/Rol" }
+                nombre: { type: string, example: Maria Lopez }
+                id_operador:
+                  type: string
+                  description: Obligatorio para los roles de operador.
+                  example: OP3
+      responses:
+        "201":
+          description: Usuario creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+        "503": { $ref: "#/components/responses/BaseNoDisponible" }
+
+  /api/auth/usuarios/{username}:
+    delete:
+      tags: [Autenticacion]
+      summary: Eliminar un usuario
+      description: |
+        Solo administrador. No se puede eliminar la propia cuenta ni la del
+        administrador base definido en `ADMIN_USERNAME`.
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Usuario eliminado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+
+  # --------------------------------------------------------------- Perfil ---
+  /api/perfil:
+    get:
+      tags: [Perfil]
+      summary: Perfil del usuario autenticado
+      description: Usuario del token junto con su ficha de operador y sus permisos.
+      responses:
+        "200":
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Perfil" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/perfil/diagnosticos:
+    get:
+      tags: [Perfil]
+      summary: Diagnosticos propios del operador
+      description: |
+        Aperturas y cierres del operador del token, mas el estado actual del nodo.
+        Un operador **solo** ve los suyos: si envia `id_operador` de otra persona
+        el parametro se ignora. El administrador si puede filtrar por cualquiera,
+        y sin el parametro ve a todos.
+      parameters:
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/Dias"
+        - $ref: "#/components/parameters/LimitEventos"
+        - $ref: "#/components/parameters/IdOperadorQuery"
+      responses:
+        "200":
+          description: Diagnosticos del rango
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Diagnosticos" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/perfil/informes:
+    get:
+      tags: [Perfil]
+      summary: Informe propio del operador
+      description: Estadisticas ambientales, alarmas y actividad de puerta del rango.
+      parameters:
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/Dias"
+        - $ref: "#/components/parameters/IdOperadorQuery"
+      responses:
+        "200":
+          description: Informe del rango
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Informe" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/perfil/reporte.pdf:
+    get:
+      tags: [Perfil]
+      summary: Reporte PDF propio del operador
+      parameters:
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/Dias"
+        - $ref: "#/components/parameters/Detalle"
+        - $ref: "#/components/parameters/IdOperadorQuery"
+      responses:
+        "200":
+          description: Documento PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  # ------------------------------------------------------------- Sensores ---
+  /api/sensores/actual:
+    get:
+      tags: [Sensores]
+      summary: Ultima lectura del nodo
+      description: |
+        Publico. Toma la lectura del hilo serial; si aun no hay ninguna en
+        memoria, cae a la ultima guardada en la base.
+      security: []
+      responses:
+        "200":
+          description: Lectura mas reciente
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lectura" }
+        "404":
+          description: Todavia no se ha recibido ninguna lectura
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+
+  /api/sensores/historial:
+    get:
+      tags: [Sensores]
+      summary: Historial de lecturas
+      description: Publico. Ordenado de la mas reciente a la mas antigua.
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          description: Entre 1 y 1000.
+          schema: { type: integer, default: 100, minimum: 1, maximum: 1000 }
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+      responses:
+        "200":
+          description: Lecturas del rango
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Lectura" }
+
+  /api/sensores/estadisticas:
+    get:
+      tags: [Sensores]
+      summary: Minimo, maximo y promedio por rango
+      description: Publico. Alimenta los paneles historicos y los graficos.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - name: horas
+          in: query
+          description: Ventana hacia atras si no se envia `desde`.
+          schema: { type: integer, default: 24, minimum: 1, maximum: 720 }
+      responses:
+        "200":
+          description: Estadisticas del rango
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  desde: { type: string, format: date-time }
+                  hasta: { type: string, format: date-time }
+                  estadisticas:
+                    $ref: "#/components/schemas/EstadisticasAmbientales"
+
+  /api/sensores/estado:
+    get:
+      tags: [Sensores]
+      summary: Estado de la conexion con el nodo
+      description: Publico. Sirve para el indicador de conectado/desconectado.
+      security: []
+      responses:
+        "200":
+          description: Estado de serial, MQTT y base de datos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  serial_conectado: { type: boolean }
+                  puerto: { type: string, nullable: true }
+                  ultimo_error: { type: string, nullable: true }
+                  mqtt_conectado: { type: boolean }
+                  base_datos_conectada: { type: boolean }
+                  ultima_lectura_recibida:
+                    allOf: [{ $ref: "#/components/schemas/Lectura" }]
+                    nullable: true
+
+  /api/sensores/alarmas:
+    get:
+      tags: [Sensores]
+      summary: Historial de alarmas
+      description: |
+        Publico. Es el HISTORICO. Las alarmas en vivo llegan por MQTT
+        (`smartegg/{node_id}/alarmas/critica`), no por este endpoint.
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: Alarmas registradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Alarma" }
+
+  /api/sensores/stream:
+    get:
+      tags: [Sensores]
+      summary: Flujo SSE de lecturas (solo depuracion)
+      description: |
+        Publico. Server-Sent Events, se conserva unicamente como respaldo para
+        depurar el backend. **El frontend no debe usarlo**: el tiempo real del
+        proyecto va por MQTT sobre WebSocket.
+      security: []
+      responses:
+        "200":
+          description: Flujo de eventos
+          content:
+            text/event-stream:
+              schema: { type: string }
+
+  # ---------------------------------------------------------------- Lotes ---
+  /api/lotes:
+    get:
+      tags: [Lotes]
+      summary: Listar lotes
+      description: Publico, para que el frontend pinte las tablas.
+      security: []
+      responses:
+        "200":
+          description: Lotes registrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Lote" }
+    post:
+      tags: [Lotes]
+      summary: Registrar un lote
+      description: Requiere token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoteEntrada" }
+      responses:
+        "201":
+          description: Lote creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lote" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "503": { $ref: "#/components/responses/BaseNoDisponible" }
+
+  /api/lotes/{lote_id}:
+    parameters:
+      - name: lote_id
+        in: path
+        required: true
+        description: ObjectId del lote.
+        schema: { type: string, example: 66f0a1b2c3d4e5f601234567 }
+    get:
+      tags: [Lotes]
+      summary: Obtener un lote
+      security: []
+      responses:
+        "200":
+          description: Lote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lote" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+    put:
+      tags: [Lotes]
+      summary: Actualizar un lote
+      description: |
+        Requiere token. Campos aceptados: `nombre_lote`, `cantidad_huevos`,
+        `raza`, `responsable`, `observaciones`, `estado`. El `codigo` no se cambia.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoteActualizacion" }
+      responses:
+        "200":
+          description: Lote actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lote" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+    delete:
+      tags: [Lotes]
+      summary: Eliminar un lote
+      description: Requiere token.
+      responses:
+        "200":
+          description: Lote eliminado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  # ----------------------------------------------------------- Operadores ---
+  /api/operadores:
+    get:
+      tags: [Operadores]
+      summary: Listar operadores
+      description: Requiere token (cualquier rol).
+      responses:
+        "200":
+          description: Operadores registrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Operador" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+    post:
+      tags: [Operadores]
+      summary: Registrar un operador
+      description: Solo administrador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperadorEntrada" }
+      responses:
+        "201":
+          description: Operador creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Operador" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+        "409": { $ref: "#/components/responses/Conflicto" }
+        "503": { $ref: "#/components/responses/BaseNoDisponible" }
+
+  /api/operadores/{id_operador}:
+    parameters:
+      - name: id_operador
+        in: path
+        required: true
+        description: Identificador que viaja en el JSON del nodo fisico.
+        schema: { type: string, example: OP1 }
+    get:
+      tags: [Operadores]
+      summary: Obtener un operador
+      responses:
+        "200":
+          description: Operador
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Operador" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+    put:
+      tags: [Operadores]
+      summary: Actualizar un operador
+      description: |
+        Solo administrador. Campos aceptados: `nombre`, `edad`, `genero`,
+        `rol`, `metodo_acceso`, `activo`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperadorActualizacion" }
+      responses:
+        "200":
+          description: Operador actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Operador" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+    delete:
+      tags: [Operadores]
+      summary: Eliminar un operador
+      description: Solo administrador.
+      responses:
+        "200":
+          description: Operador eliminado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mensaje" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  # --------------------------------------------------------------- Puerta ---
+  /api/puerta/eventos:
+    get:
+      tags: [Puerta]
+      summary: Historial de aperturas y cierres
+      description: Publico, alimenta las tablas y los paneles de puerta.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LimitEventos"
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/IdOperadorQuery"
+      responses:
+        "200":
+          description: Eventos del rango
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/EventoPuerta" }
+    post:
+      tags: [Puerta]
+      summary: Registrar un evento manual de puerta
+      description: |
+        Requiere token. Respaldo por si el lector RFID falla. El backend marca
+        `autorizado` segun exista el operador y este activo; si no lo esta,
+        el evento se guarda igual pero responde **202** en vez de 201.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventoPuertaEntrada" }
+      responses:
+        "201":
+          description: Evento registrado y autorizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventoPuerta" }
+        "202":
+          description: Evento registrado pero NO autorizado (operador desconocido o inactivo)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventoPuerta" }
+        "400": { $ref: "#/components/responses/ErrorValidacion" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "503": { $ref: "#/components/responses/BaseNoDisponible" }
+
+  /api/puerta/resumen:
+    get:
+      tags: [Puerta]
+      summary: Conteo de veces abierta y cerrada
+      description: |
+        Publico. Alimenta los paneles "cantidad de veces abierta" y "cantidad de
+        veces cerrada" de Grafana. Rango por defecto: ultimos 7 dias.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/IdOperadorQuery"
+      responses:
+        "200":
+          description: Resumen del rango
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResumenPuerta" }
+
+  # ------------------------------------------------------------- Reportes ---
+  /api/reportes/pdf:
+    get:
+      tags: [Reportes]
+      summary: Reporte general en PDF
+      security: []
+      parameters:
+        - name: tecnico
+          in: query
+          description: Nombre que aparece como responsable del reporte.
+          schema: { type: string, default: No especificado }
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/Detalle"
+      responses:
+        "200":
+          description: Documento PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+
+  /api/reportes/pdf/operador/{id_operador}:
+    get:
+      tags: [Reportes]
+      summary: Reporte PDF de un operador
+      description: |
+        Requiere token. Un operador solo puede pedir el suyo; si pide el de otro
+        recibe 403. El administrador puede pedir el de cualquiera.
+      parameters:
+        - name: id_operador
+          in: path
+          required: true
+          schema: { type: string, example: OP1 }
+        - name: tecnico
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Desde"
+        - $ref: "#/components/parameters/Hasta"
+        - $ref: "#/components/parameters/Detalle"
+      responses:
+        "200":
+          description: Documento PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermisos" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  # ---------------------------------------------------------- Diagnostico ---
+  /api/diagnostico:
+    get:
+      tags: [Diagnostico]
+      summary: Resumen de serial, MQTT y base de datos
+      description: Requiere token.
+      responses:
+        "200":
+          description: Estado consolidado
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/diagnostico/serial:
+    get:
+      tags: [Diagnostico]
+      summary: Estado del puerto serial
+      description: Requiere token. Incluye puertos detectados y ultimo evento de puerta.
+      responses:
+        "200":
+          description: Estado del serial
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/diagnostico/serial/lineas:
+    get:
+      tags: [Diagnostico]
+      summary: Ultimas lineas crudas del serial
+      description: Requiere token. Util para depurar el JSON que emite el firmware.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 30 }
+      responses:
+        "200":
+          description: Lineas recibidas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    timestamp: { type: string, format: date-time }
+                    linea: { type: string }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/diagnostico/mqtt:
+    get:
+      tags: [Diagnostico]
+      summary: Estado del cliente MQTT
+      description: Requiere token. Incluye estadisticas de publicacion y reconexiones.
+      responses:
+        "200":
+          description: Estado del cliente MQTT
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/diagnostico/mqtt/topics:
+    get:
+      tags: [Diagnostico]
+      summary: Catalogo de topics MQTT
+      description: |
+        **Publico a proposito**: es como el frontend descubre la URL del
+        WebSocket y los topics a los que suscribirse para las alarmas.
+      security: []
+      responses:
+        "200":
+          description: Catalogo de topics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prefijo: { type: string, example: smartegg }
+                  node_id: { type: string, example: incubadora-01 }
+                  broker_websocket: { type: string, example: "ws://localhost:9001" }
+                  topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clave: { type: string }
+                        topic: { type: string }
+                        qos: { type: integer, enum: [0, 1, 2] }
+                        retained: { type: boolean }
+                        descripcion: { type: string }
+
+  /api/historico/series:
+    get:
+      tags: [Historico]
+      summary: Serie temporal agrupada por intervalos
+      description: >
+        Promedios de temperatura y humedad agrupados en bloques de tiempo, con
+        el minimo y el maximo de cada bloque. La agregacion la hace MongoDB, no
+        el cliente. Si el rango pedido genera mas de 5000 puntos, el intervalo
+        se ensancha solo y el valor aplicado vuelve en la respuesta.
+        Publico: lo consume Grafana.
+      security: []
+      parameters:
+        - { name: desde, in: query, schema: { type: string, format: date-time }, description: "Inicio del rango. Por defecto, 24 h atras." }
+        - { name: hasta, in: query, schema: { type: string, format: date-time }, description: "Fin del rango. Por defecto, ahora." }
+        - { name: intervalo, in: query, schema: { type: integer, default: 5, minimum: 1, maximum: 1440 }, description: "Minutos por bloque." }
+      responses:
+        "200":
+          description: Serie agregada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SerieTemporal" }
+
+  /api/historico/diario:
+    get:
+      tags: [Historico]
+      summary: Resumen por dia
+      description: >
+        Una fila por dia con promedios, extremos, cuantas lecturas cayeron en
+        alarma y cuantas veces se abrio la puerta. Publico.
+      security: []
+      parameters:
+        - { name: dias, in: query, schema: { type: integer, default: 7, minimum: 1, maximum: 365 } }
+      responses:
+        "200":
+          description: Resumen diario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dias: { type: integer }
+                  filas: { type: integer }
+                  resumen:
+                    type: array
+                    items: { $ref: "#/components/schemas/ResumenDiario" }
+
+  /api/historico/alarmas:
+    get:
+      tags: [Historico]
+      summary: Conteo de alarmas por tipo
+      description: Cuantas alarmas hubo de cada tipo y cuanto duraron. Publico.
+      security: []
+      parameters:
+        - { name: desde, in: query, schema: { type: string, format: date-time } }
+        - { name: hasta, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Alarmas agrupadas por tipo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  desde: { type: string, format: date-time }
+                  hasta: { type: string, format: date-time }
+                  total: { type: integer }
+                  por_tipo:
+                    type: array
+                    items: { $ref: "#/components/schemas/AlarmaPorTipo" }
+
+  /api/historico/operadores:
+    get:
+      tags: [Historico]
+      summary: Actividad de puerta por operador
+      description: >
+        Ranking de operadores por cantidad de aperturas, con el saldo de huevos
+        de cada uno. Son totales agregados, no datos personales, asi que es
+        publico; los informes individuales siguen protegidos en /api/perfil.
+      security: []
+      parameters:
+        - { name: desde, in: query, schema: { type: string, format: date-time } }
+        - { name: hasta, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Actividad por operador
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  desde: { type: string, format: date-time }
+                  hasta: { type: string, format: date-time }
+                  operadores:
+                    type: array
+                    items: { $ref: "#/components/schemas/ActividadOperador" }
+
+  /api/historico/lote/{lote_id}:
+    get:
+      tags: [Historico]
+      summary: Condiciones durante la incubacion de un lote
+      description: >
+        Las lecturas no llevan lote_id (el nodo mide la incubadora, no sabe que
+        lote hay dentro), asi que el cruce se hace por tiempo: la ventana entre
+        la fecha de ingreso del lote y su cierre, o ahora si sigue incubando.
+        Publico.
+      security: []
+      parameters:
+        - { name: lote_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Estadisticas del lote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EstadisticasLote" }
+        "404":
+          description: Lote no encontrado o sin datos
+
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token de POST /api/auth/login. Cabecera: Authorization: Bearer <token>"
+
+  parameters:
+    Desde:
+      name: desde
+      in: query
+      description: Inicio del rango, ISO-8601 (ej. 2026-09-01T00:00:00Z).
+      schema: { type: string, format: date-time }
+    Hasta:
+      name: hasta
+      in: query
+      description: Fin del rango, ISO-8601. Por defecto, ahora.
+      schema: { type: string, format: date-time }
+    Dias:
+      name: dias
+      in: query
+      description: Ventana hacia atras en dias si no se envia `desde`.
+      schema: { type: integer, default: 7, minimum: 1, maximum: 365 }
+    Detalle:
+      name: detalle
+      in: query
+      description: Incluir el detalle lectura por lectura en el PDF.
+      schema: { type: boolean, default: false }
+    LimitEventos:
+      name: limit
+      in: query
+      schema: { type: integer, default: 100, minimum: 1, maximum: 500 }
+    IdOperadorQuery:
+      name: id_operador
+      in: query
+      description: |
+        Filtrar por operador. Un operador autenticado no puede consultar otro
+        distinto al suyo: el valor se ignora y se usa el propio.
+      schema: { type: string, example: OP1 }
+
+  responses:
+    ErrorValidacion:
+      description: El cuerpo de la peticion no paso las validaciones
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErroresValidacion" }
+    NoAutenticado:
+      description: Falta el token o no es valido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Mensaje" }
+    SinPermisos:
+      description: El rol del token no alcanza para esta operacion
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Mensaje" }
+    NoEncontrado:
+      description: El recurso no existe
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Mensaje" }
+    Conflicto:
+      description: El recurso ya existe o la operacion no esta permitida
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Mensaje" }
+    BaseNoDisponible:
+      description: |
+        La base de datos no responde. El backend sigue en linea en modo
+        degradado, pero no puede persistir.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Mensaje" }
+
+  schemas:
+
+    Mensaje:
+      type: object
+      properties:
+        mensaje: { type: string }
+
+    ErroresValidacion:
+      type: object
+      properties:
+        errores:
+          type: array
+          items: { type: string }
+          example: ["El campo 'codigo' es obligatorio."]
+
+    Rol:
+      type: string
+      enum: [administrador, operador_1, operador_2]
+
+    Usuario:
+      type: object
+      properties:
+        username: { type: string, example: operador1 }
+        nombre: { type: string, example: Operador 1 }
+        rol: { $ref: "#/components/schemas/Rol" }
+        id_operador:
+          type: string
+          nullable: true
+          description: Enlace con el operador del nodo fisico. Null para el administrador.
+          example: OP1
+        activo: { type: boolean }
+
+    RespuestaLogin:
+      type: object
+      properties:
+        token: { type: string, example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... }
+        token_tipo: { type: string, example: Bearer }
+        expira_en: { type: string, format: date-time }
+        usuario: { $ref: "#/components/schemas/Usuario" }
+
+    Perfil:
+      type: object
+      properties:
+        usuario: { $ref: "#/components/schemas/Usuario" }
+        es_administrador: { type: boolean }
+        operador:
+          allOf: [{ $ref: "#/components/schemas/Operador" }]
+          nullable: true
+        permisos:
+          type: object
+          properties:
+            ver_todos_los_operadores: { type: boolean }
+            administrar_usuarios: { type: boolean }
+            administrar_operadores: { type: boolean }
+
+    Lectura:
+      type: object
+      properties:
+        id: { type: string }
+        temperatura: { type: number, format: float, example: 37.5 }
+        humedad: { type: number, format: float, example: 55.2 }
+        sistema_encendido: { type: boolean }
+        alarma: { type: boolean }
+        espacios_libres: { type: integer, minimum: 0, maximum: 6 }
+        calefaccion: { type: boolean }
+        ventilacion: { type: boolean }
+        rotacion: { type: boolean }
+        puerta_abierta: { type: boolean }
+        node_id: { type: string, example: incubadora-01 }
+        timestamp: { type: string, format: date-time }
+
+    EstadisticasAmbientales:
+      type: object
+      nullable: true
+      description: Null si no hay lecturas en el rango.
+      properties:
+        temp_min: { type: number, format: float }
+        temp_max: { type: number, format: float }
+        temp_prom: { type: number, format: float }
+        hum_min: { type: number, format: float }
+        hum_max: { type: number, format: float }
+        hum_prom: { type: number, format: float }
+        lecturas_totales: { type: integer }
+
+    Alarma:
+      type: object
+      properties:
+        id: { type: string }
+        tipo: { type: string, example: condicion_critica }
+        severidad:
+          type: string
+          enum: [critica, advertencia, informativa]
+        mensaje: { type: string }
+        temperatura: { type: number, format: float }
+        humedad: { type: number, format: float }
+        inicio: { type: string, format: date-time }
+        fin:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null mientras la alarma sigue activa.
+        duracion_segundos: { type: number, nullable: true }
+        activa: { type: boolean }
+        node_id: { type: string }
+
+    LoteEntrada:
+      type: object
+      required: [codigo, nombre_lote, cantidad_huevos]
+      properties:
+        codigo: { type: string, example: L-001 }
+        nombre_lote: { type: string, example: Lote criollo septiembre }
+        cantidad_huevos: { type: integer, minimum: 1, example: 6 }
+        raza: { type: string, example: Criolla }
+        responsable: { type: string, example: Juan Ordonez }
+        observaciones: { type: string }
+        estado:
+          type: string
+          enum: [incubando, eclosionado, descartado]
+          default: incubando
+
+    LoteActualizacion:
+      type: object
+      description: Todos los campos son opcionales; `codigo` no se puede cambiar.
+      properties:
+        nombre_lote: { type: string }
+        cantidad_huevos: { type: integer, minimum: 1 }
+        raza: { type: string }
+        responsable: { type: string }
+        observaciones: { type: string }
+        estado:
+          type: string
+          enum: [incubando, eclosionado, descartado]
+
+    Lote:
+      allOf:
+        - type: object
+          properties:
+            id: { type: string }
+            fecha_ingreso: { type: string, format: date-time }
+        - $ref: "#/components/schemas/LoteEntrada"
+
+    OperadorEntrada:
+      type: object
+      required: [id_operador, nombre]
+      properties:
+        id_operador:
+          type: string
+          description: Debe coincidir con el id que emite el firmware.
+          example: OP1
+        nombre: { type: string, example: Ana Lopez }
+        edad: { type: integer, minimum: 0, maximum: 120, example: 34 }
+        genero:
+          type: string
+          enum: [masculino, femenino, otro, no_especificado]
+          default: no_especificado
+        rol:
+          type: string
+          enum: [operador_1, operador_2, administrador]
+          default: operador_1
+        metodo_acceso:
+          type: string
+          enum: [rfid, huella, llave, manual]
+          default: rfid
+        activo: { type: boolean, default: true }
+
+    OperadorActualizacion:
+      type: object
+      description: Todos opcionales; `id_operador` no se puede cambiar.
+      properties:
+        nombre: { type: string }
+        edad: { type: integer, minimum: 0, maximum: 120 }
+        genero:
+          type: string
+          enum: [masculino, femenino, otro, no_especificado]
+        rol:
+          type: string
+          enum: [operador_1, operador_2, administrador]
+        metodo_acceso:
+          type: string
+          enum: [rfid, huella, llave, manual]
+        activo: { type: boolean }
+
+    Operador:
+      allOf:
+        - type: object
+          properties:
+            id: { type: string }
+            fecha_registro: { type: string, format: date-time }
+        - $ref: "#/components/schemas/OperadorEntrada"
+
+    EventoPuertaEntrada:
+      type: object
+      required: [accion, id_operador]
+      properties:
+        accion:
+          type: string
+          enum: [abrir, cerrar]
+        id_operador: { type: string, example: OP1 }
+        metodo:
+          type: string
+          enum: [rfid, huella, llave, manual]
+          default: manual
+        huevos_delta:
+          type: integer
+          description: Positivo si ingresaron huevos, negativo si los retiraron.
+          example: -2
+        observaciones: { type: string }
+
+    EventoPuerta:
+      type: object
+      properties:
+        id: { type: string }
+        accion:
+          type: string
+          enum: [abrir, cerrar]
+        id_operador: { type: string, example: OP1 }
+        metodo:
+          type: string
+          enum: [rfid, huella, llave, manual]
+        huevos_delta: { type: integer, example: -2 }
+        huevos_ingresados: { type: integer, minimum: 0 }
+        huevos_retirados: { type: integer, minimum: 0 }
+        autorizado: { type: boolean }
+        observaciones: { type: string }
+        origen:
+          type: string
+          enum: [serial, api]
+          description: serial = lo mando el nodo fisico; api = registro manual.
+        node_id: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    ResumenPuerta:
+      type: object
+      properties:
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+        veces_abierta: { type: integer }
+        veces_cerrada: { type: integer }
+        huevos_ingresados: { type: integer }
+        huevos_retirados: { type: integer }
+        por_operador:
+          type: array
+          items:
+            type: object
+            properties:
+              id_operador: { type: string }
+              veces_abierta: { type: integer }
+              veces_cerrada: { type: integer }
+              huevos_ingresados: { type: integer }
+              huevos_retirados: { type: integer }
+
+    Diagnosticos:
+      type: object
+      properties:
+        id_operador: { type: string, nullable: true }
+        alcance:
+          type: string
+          enum: [propio, todos]
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+        resumen_puerta: { $ref: "#/components/schemas/ResumenPuerta" }
+        eventos:
+          type: array
+          items: { $ref: "#/components/schemas/EventoPuerta" }
+        estado_nodo_actual:
+          allOf: [{ $ref: "#/components/schemas/Lectura" }]
+          nullable: true
+
+    Informe:
+      type: object
+      properties:
+        id_operador: { type: string, nullable: true }
+        alcance:
+          type: string
+          enum: [propio, todos]
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+        estadisticas_ambientales:
+          $ref: "#/components/schemas/EstadisticasAmbientales"
+        alarmas:
+          type: array
+          items: { $ref: "#/components/schemas/Alarma" }
+        total_alarmas: { type: integer }
+        actividad_puerta: { $ref: "#/components/schemas/ResumenPuerta" }
+        descarga_pdf: { type: string, example: /api/perfil/reporte.pdf }
+
+    SerieTemporal:
+      type: object
+      properties:
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+        intervalo_minutos: { type: integer, description: "Intervalo realmente aplicado." }
+        puntos: { type: integer }
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp: { type: string, format: date-time }
+              temp_prom: { type: number, nullable: true }
+              temp_min: { type: number, nullable: true }
+              temp_max: { type: number, nullable: true }
+              hum_prom: { type: number, nullable: true }
+              hum_min: { type: number, nullable: true }
+              hum_max: { type: number, nullable: true }
+              lecturas: { type: integer }
+              alarmas: { type: integer, description: "Lecturas del bloque con la bandera de alarma." }
+
+    ResumenDiario:
+      type: object
+      properties:
+        dia: { type: string, example: "2026-09-05" }
+        temp_prom: { type: number, nullable: true }
+        temp_min: { type: number, nullable: true }
+        temp_max: { type: number, nullable: true }
+        hum_prom: { type: number, nullable: true }
+        hum_min: { type: number, nullable: true }
+        hum_max: { type: number, nullable: true }
+        lecturas: { type: integer }
+        lecturas_en_alarma: { type: integer }
+        aperturas_puerta: { type: integer }
+
+    AlarmaPorTipo:
+      type: object
+      properties:
+        tipo: { type: string }
+        cantidad: { type: integer }
+        duracion_total_segundos: { type: number }
+        duracion_promedio_segundos: { type: number, nullable: true }
+        activas: { type: integer }
+
+    ActividadOperador:
+      type: object
+      properties:
+        id_operador: { type: string }
+        veces_abierta: { type: integer }
+        veces_cerrada: { type: integer }
+        huevos_ingresados: { type: integer }
+        huevos_retirados: { type: integer }
+
+    EstadisticasLote:
+      type: object
+      properties:
+        lote_id: { type: string }
+        codigo: { type: string, nullable: true }
+        estado: { type: string, nullable: true }
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+        dias_incubando: { type: number }
+        temp_min: { type: number, nullable: true }
+        temp_max: { type: number, nullable: true }
+        temp_prom: { type: number, nullable: true }
+        hum_min: { type: number, nullable: true }
+        hum_max: { type: number, nullable: true }
+        hum_prom: { type: number, nullable: true }
+        lecturas_totales: { type: integer }
