@@ -1,0 +1,58 @@
+# Reverse proxy de SmartEgg.
+#
+# Junta frontend, API, WebSocket de MQTT y Grafana bajo un unico puerto y un
+# unico origen. Eso resuelve tres cosas de golpe:
+#
+#   1. Se acaba el CORS: todo sale del mismo origen.
+#   2. El WebSocket hereda el TLS del tunel, asi que queda wss:// y el
+#      navegador no lo bloquea por contenido mixto.
+#   3. El frontend usa rutas relativas (/api, /mqtt), asi que no hay que
+#      recompilarlo cuando cambia la URL publica.
+
+{
+	admin off
+	# El TLS lo termina el tunel (Cloudflare, ngrok, etc.), no Caddy.
+	auto_https off
+}
+
+:80 {
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+
+	# --- WebSocket de MQTT -------------------------------------------------
+	# El listener de Mosquitto sirve en la raiz, asi que se reescribe la ruta.
+	# Caddy detecta y mantiene el upgrade a WebSocket por su cuenta.
+	handle /mqtt {
+		rewrite * /
+		reverse_proxy mosquitto:9001
+	}
+
+	# --- API REST, Swagger y especificacion OpenAPI ------------------------
+	# `handle` NO recorta el prefijo: el backend espera las rutas /api/...
+	handle /api/* {
+		reverse_proxy backend:5000
+	}
+
+	handle /health {
+		reverse_proxy backend:5000
+	}
+
+	# --- Grafana ------------------------------------------------------------
+	# Requiere GF_SERVER_SERVE_FROM_SUB_PATH=true en el compose, o los enlaces
+	# internos de Grafana apuntan a la raiz y se rompen.
+	handle /grafana/* {
+		reverse_proxy grafana:3000
+	}
+
+	# --- Todo lo demas: la SPA ----------------------------------------------
+	# Nginx sirve el index.html para cualquier ruta desconocida (try_files), que
+	# es lo que necesita React Router para que /lotes o /perfil funcionen al
+	# recargar la pagina o al entrar directo por la URL.
+	handle {
+		reverse_proxy frontend:80
+	}
+}

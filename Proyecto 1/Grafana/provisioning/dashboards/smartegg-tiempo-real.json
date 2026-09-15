@@ -1,0 +1,920 @@
+{
+  "uid": "smartegg-tiempo-real",
+  "title": "SmartEgg - Tiempo real",
+  "description": "Tiempo real del nodo. La fila de arriba se suscribe DIRECTAMENTE al broker MQTT (push, sin refresco); la de abajo consulta la API REST sobre la base de datos para el contexto que no viaja por telemetria (alarmas y accesos recientes). El historico de temperatura y humedad NO se repite aqui: vive en el dashboard 'SmartEgg - Historico'.",
+  "tags": [
+    "smartegg",
+    "tiempo-real"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "5s",
+  "editable": true,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Tiempo real desde el broker MQTT",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 101,
+      "type": "timeseries",
+      "title": "Temperatura en vivo (MQTT)",
+      "description": "Suscripcion directa al broker. Cada punto llega por push del topic, sin refresco ni polling.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "smartegg-mqtt"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "smartegg-mqtt"
+          },
+          "topic": "smartegg/$nodo/sensores/temperatura"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "pointSize": 5
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unidad"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "id": 102,
+      "type": "timeseries",
+      "title": "Humedad en vivo (MQTT)",
+      "description": "Suscripcion directa al broker sobre el topic de humedad.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "smartegg-mqtt"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "smartegg-mqtt"
+          },
+          "topic": "smartegg/$nodo/sensores/humedad"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "pointSize": 5
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unidad"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 9,
+        "y": 1
+      }
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "Actuadores (MQTT)",
+      "description": "Topic retenido: al abrir el dashboard llega el ultimo estado conocido sin esperar una publicacion nueva.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "smartegg-mqtt"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "smartegg-mqtt"
+          },
+          "topic": "smartegg/$nodo/actuadores/estado"
+        }
+      ],
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "true": {
+                  "text": "ENCENDIDO",
+                  "color": "green",
+                  "index": 0
+                },
+                "false": {
+                  "text": "apagado",
+                  "color": "text",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(calefaccion|ventilacion|rotacion|puerta_abierta)$/",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 104,
+      "type": "stat",
+      "title": "Disponibilidad del nodo (LWT)",
+      "description": "Topic de status. El 'offline' no lo publica el backend: lo emite el broker como Last Will and Testament si la conexion se corta sin avisar.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "smartegg-mqtt"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "smartegg-mqtt"
+          },
+          "topic": "smartegg/$nodo/status"
+        }
+      ],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "online": {
+                  "text": "ONLINE",
+                  "color": "green",
+                  "index": 0
+                },
+                "offline": {
+                  "text": "OFFLINE",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^estado$/",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 105,
+      "type": "row",
+      "title": "Estado actual y contexto (API REST sobre la base de datos)",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Temperatura ahora",
+      "description": "Ultima lectura del DHT11. El rango optimo de incubacion es 37-38 C.",
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 0,
+        "y": 11
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 37
+              },
+              {
+                "color": "red",
+                "value": 38
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/sensores/actual",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "temperatura",
+              "text": "Temperatura",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Humedad ahora",
+      "description": "Ultima lectura del DHT11. El rango optimo es 50-65 %.",
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 5,
+        "y": 11
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 65
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/sensores/actual",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "humedad",
+              "text": "Humedad",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Espacios libres en la bandeja",
+      "description": "Lo reportan los finales de carrera. De 6 espacios totales.",
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 10,
+        "y": 11
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "max": 6,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 4
+              },
+              {
+                "color": "orange",
+                "value": 6
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/sensores/actual",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "espacios_libres",
+              "text": "Libres",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Estado de los actuadores",
+      "description": "Calefaccion, ventilacion y rotacion tal como los reporta el nodo. La rotacion se activa cada 2 minutos.",
+      "gridPos": {
+        "h": 6,
+        "w": 10,
+        "x": 14,
+        "y": 11
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "APAGADO",
+                  "color": "text",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "ENCENDIDO",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/sensores/actual",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "calefaccion",
+              "text": "Calefaccion",
+              "type": "number"
+            },
+            {
+              "selector": "ventilacion",
+              "text": "Ventilacion",
+              "type": "number"
+            },
+            {
+              "selector": "rotacion",
+              "text": "Rotacion",
+              "type": "number"
+            },
+            {
+              "selector": "alarma",
+              "text": "Alarma",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Alarmas recientes",
+      "description": "Las ultimas condiciones criticas. 'activa' en true significa que sigue sin resolverse.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Activa"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "true": {
+                        "text": "SI",
+                        "color": "red",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "false": {
+                        "text": "resuelta",
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/sensores/alarmas?limit=10",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "inicio",
+              "text": "Inicio",
+              "type": "timestamp"
+            },
+            {
+              "selector": "tipo",
+              "text": "Tipo",
+              "type": "string"
+            },
+            {
+              "selector": "severidad",
+              "text": "Severidad",
+              "type": "string"
+            },
+            {
+              "selector": "duracion_segundos",
+              "text": "Duracion (s)",
+              "type": "number"
+            },
+            {
+              "selector": "activa",
+              "text": "Activa",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Ultimos accesos a la incubadora",
+      "description": "Aperturas y cierres con el operador que paso la tarjeta. 'denegado' es una tarjeta no registrada.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accion"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "abrir": {
+                        "color": "orange",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "cerrar": {
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "denegado": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/puerta/eventos?limit=15",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "Cuando",
+              "type": "timestamp"
+            },
+            {
+              "selector": "accion",
+              "text": "Accion",
+              "type": "string"
+            },
+            {
+              "selector": "id_operador",
+              "text": "Operador",
+              "type": "string"
+            },
+            {
+              "selector": "metodo",
+              "text": "Metodo",
+              "type": "string"
+            },
+            {
+              "selector": "huevos_delta",
+              "text": "Huevos",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "nodo",
+        "type": "constant",
+        "label": "Nodo",
+        "query": "incubadora-01",
+        "current": {
+          "text": "incubadora-01",
+          "value": "incubadora-01"
+        },
+        "hide": 2,
+        "skipUrlSync": false,
+        "description": "Id del nodo. Los topics son smartegg/{nodo}/..., asi que basta cambiarlo aqui para apuntar a otra incubadora."
+      }
+    ]
+  }
+}

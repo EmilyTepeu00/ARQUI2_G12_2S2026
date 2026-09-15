@@ -1,0 +1,51 @@
+# Datasources de SmartEgg. Grafana los carga solo al arrancar: no hay que
+# darlos de alta a mano en la interfaz.
+#
+# Los host son nombres de servicio de docker-compose, NO localhost: dentro de la
+# red de Docker, "localhost" para Grafana es el propio contenedor de Grafana.
+apiVersion: 1
+
+datasources:
+
+  # --- Broker MQTT -----------------------------------------------------------
+  # Fuente de los paneles en tiempo real: Grafana se suscribe a los topics y los
+  # datos llegan por push (Grafana Live), sin refresco ni polling.
+  #
+  # LA VERSION DEL PLUGIN IMPORTA. Con la linea 1.3.x la suscripcion falla con:
+  #
+  #     invalid orgId supplied in request        (endpoint=subscribeStream)
+  #
+  # Es el bug abierto grafana/mqtt-datasource#361: el propio plugin arma el canal
+  # y luego rechaza el orgId que el mismo puso. La 1.2.1 no lo tiene y hace
+  # streaming correctamente. Por eso GRAFANA_PLUGINS la fija: no la subas sin
+  # comprobar antes que el bug este cerrado.
+  #
+  # Ojo al probar versiones: los plugins viven en el volumen grafana_data. El
+  # entrypoint respeta el que ya este instalado si coincide con GF_INSTALL_PLUGINS,
+  # asi que hay que cambiar la version en el .env, no a mano dentro del contenedor.
+  - name: SmartEgg MQTT
+    uid: smartegg-mqtt
+    type: grafana-mqtt-datasource
+    access: proxy
+    isDefault: false
+    editable: true
+    jsonData:
+      uri: tcp://mosquitto:1883
+
+  # --- Historico -------------------------------------------------------------
+  # Mongo no tiene datasource gratuito en Grafana (el oficial es de la version
+  # Enterprise), asi que el historico se consulta por la API REST, que ya
+  # devuelve los datos agregados por Mongo en /api/historico/*.
+  #
+  # Esos endpoints son publicos de solo lectura, asi que no hay que guardar
+  # ningun token en Grafana.
+  - name: SmartEgg API
+    uid: smartegg-api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: true
+    editable: true
+    jsonData:
+      auth_method: none
+      global_queries: []
+    url: http://backend:5000

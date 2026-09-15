@@ -1,0 +1,19 @@
+# Carga los .json de la carpeta dashboards/ al arrancar Grafana.
+#
+# allowUiUpdates permite editarlos desde la interfaz, pero OJO: esos cambios
+# viven en el volumen, no en el repositorio. Para que un cambio quede versionado
+# hay que exportarlo (Dashboard > Share > Export > Save to file) y reemplazar el
+# .json correspondiente.
+apiVersion: 1
+
+providers:
+  - name: SmartEgg
+    orgId: 1
+    folder: SmartEgg
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

@@ -1,0 +1,846 @@
+{
+  "uid": "smartegg-historico",
+  "title": "SmartEgg - Historico",
+  "description": "Condiciones de incubacion a lo largo del tiempo. Los datos salen de /api/historico/*, que devuelve agregados calculados por MongoDB.",
+  "tags": [
+    "smartegg",
+    "historico"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "1m",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "intervalo",
+        "label": "Agrupar cada",
+        "type": "custom",
+        "query": "1,5,15,30,60",
+        "current": {
+          "text": "5",
+          "value": "5"
+        },
+        "options": [
+          {
+            "text": "1",
+            "value": "1",
+            "selected": false
+          },
+          {
+            "text": "5",
+            "value": "5",
+            "selected": true
+          },
+          {
+            "text": "15",
+            "value": "15",
+            "selected": false
+          },
+          {
+            "text": "30",
+            "value": "30",
+            "selected": false
+          },
+          {
+            "text": "60",
+            "value": "60",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "dias",
+        "label": "Dias del resumen",
+        "type": "custom",
+        "query": "7,15,30,90",
+        "current": {
+          "text": "7",
+          "value": "7"
+        },
+        "options": [
+          {
+            "text": "7",
+            "value": "7",
+            "selected": true
+          },
+          {
+            "text": "15",
+            "value": "15",
+            "selected": false
+          },
+          {
+            "text": "30",
+            "value": "30",
+            "selected": false
+          },
+          {
+            "text": "90",
+            "value": "90",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "lote",
+        "label": "Lote",
+        "type": "query",
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "smartegg-api"
+        },
+        "query": {
+          "queryType": "infinity",
+          "infinityQuery": {
+            "refId": "variable",
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "format": "table",
+            "url": "/api/lotes",
+            "url_options": {
+              "method": "GET"
+            },
+            "root_selector": "",
+            "columns": [
+              {
+                "selector": "codigo",
+                "text": "__text",
+                "type": "string"
+              },
+              {
+                "selector": "id",
+                "text": "__value",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Temperatura ($intervalo min)",
+      "description": "Promedio por bloque, con la banda entre el minimo y el maximo. Las lineas punteadas son el rango optimo de incubacion (37-38 C).",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 37
+              },
+              {
+                "color": "red",
+                "value": 38
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temp_min"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temp_max"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/historico/series?intervalo=$intervalo&desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "series",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "temp_prom",
+              "text": "Promedio",
+              "type": "number"
+            },
+            {
+              "selector": "temp_min",
+              "text": "temp_min",
+              "type": "number"
+            },
+            {
+              "selector": "temp_max",
+              "text": "temp_max",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Humedad relativa ($intervalo min)",
+      "description": "Promedio por bloque con su banda de variacion. El rango optimo es 50-65 %.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/historico/series?intervalo=$intervalo&desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "series",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "hum_prom",
+              "text": "Promedio",
+              "type": "number"
+            },
+            {
+              "selector": "hum_min",
+              "text": "hum_min",
+              "type": "number"
+            },
+            {
+              "selector": "hum_max",
+              "text": "hum_max",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Alarmas por tipo",
+      "description": "Cuantas veces se disparo cada condicion critica en el periodo.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "Tipo",
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/historico/alarmas?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "por_tipo",
+          "columns": [
+            {
+              "selector": "tipo",
+              "text": "Tipo",
+              "type": "string"
+            },
+            {
+              "selector": "cantidad",
+              "text": "Cantidad",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Actividad por operador",
+      "description": "Quien abrio la incubadora y cuantos huevos entraron o salieron. Sale de la coleccion aperturas_puerta, que alimenta el RFID.",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 9
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/historico/operadores?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "operadores",
+          "columns": [
+            {
+              "selector": "id_operador",
+              "text": "Operador",
+              "type": "string"
+            },
+            {
+              "selector": "veces_abierta",
+              "text": "Aperturas",
+              "type": "number"
+            },
+            {
+              "selector": "veces_cerrada",
+              "text": "Cierres",
+              "type": "number"
+            },
+            {
+              "selector": "huevos_ingresados",
+              "text": "Huevos ingresados",
+              "type": "number"
+            },
+            {
+              "selector": "huevos_retirados",
+              "text": "Huevos retirados",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Resumen de los ultimos $dias dias",
+      "description": "Una fila por dia: promedios, extremos, cuantas lecturas cayeron en alarma y cuantas veces se abrio la puerta.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Temp. promedio"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hum. promedio"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "humidity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lecturas en alarma"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 10
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/historico/diario?dias=$dias",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "resumen",
+          "columns": [
+            {
+              "selector": "dia",
+              "text": "Dia",
+              "type": "string"
+            },
+            {
+              "selector": "temp_prom",
+              "text": "Temp. promedio",
+              "type": "number"
+            },
+            {
+              "selector": "temp_min",
+              "text": "Temp. min",
+              "type": "number"
+            },
+            {
+              "selector": "temp_max",
+              "text": "Temp. max",
+              "type": "number"
+            },
+            {
+              "selector": "hum_prom",
+              "text": "Hum. promedio",
+              "type": "number"
+            },
+            {
+              "selector": "lecturas",
+              "text": "Lecturas",
+              "type": "number"
+            },
+            {
+              "selector": "lecturas_en_alarma",
+              "text": "Lecturas en alarma",
+              "type": "number"
+            },
+            {
+              "selector": "aperturas_puerta",
+              "text": "Aperturas",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Alarmas: duracion de cada condicion critica",
+      "description": "Por tipo de alarma: cuantas veces ocurrio, cuanto duro en promedio, cuanto sumo en total y cuantas siguen activas.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Duracion.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/historico/alarmas?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "por_tipo",
+          "columns": [
+            {
+              "selector": "tipo",
+              "text": "Tipo",
+              "type": "string"
+            },
+            {
+              "selector": "cantidad",
+              "text": "Veces",
+              "type": "number"
+            },
+            {
+              "selector": "duracion_promedio_segundos",
+              "text": "Duracion promedio",
+              "type": "number"
+            },
+            {
+              "selector": "duracion_total_segundos",
+              "text": "Duracion total",
+              "type": "number"
+            },
+            {
+              "selector": "activas",
+              "text": "Activas",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Condiciones del lote $lote",
+      "description": "Minimo, maximo y promedio de temperatura y humedad durante la incubacion del lote seleccionado. La ventana va de la fecha de ingreso a la de eclosion (o a ahora, si sigue incubando).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Temp.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Hum.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "humidity"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/historico/lote/$lote",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "codigo",
+              "text": "Lote",
+              "type": "string"
+            },
+            {
+              "selector": "estado",
+              "text": "Estado",
+              "type": "string"
+            },
+            {
+              "selector": "dias_incubando",
+              "text": "Dias",
+              "type": "number"
+            },
+            {
+              "selector": "lecturas_totales",
+              "text": "Lecturas",
+              "type": "number"
+            },
+            {
+              "selector": "temp_min",
+              "text": "Temp min",
+              "type": "number"
+            },
+            {
+              "selector": "temp_prom",
+              "text": "Temp promedio",
+              "type": "number"
+            },
+            {
+              "selector": "temp_max",
+              "text": "Temp max",
+              "type": "number"
+            },
+            {
+              "selector": "hum_min",
+              "text": "Hum min",
+              "type": "number"
+            },
+            {
+              "selector": "hum_prom",
+              "text": "Hum promedio",
+              "type": "number"
+            },
+            {
+              "selector": "hum_max",
+              "text": "Hum max",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
