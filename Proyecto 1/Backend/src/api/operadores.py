@@ -6,11 +6,9 @@ from src.models import Operador, serialize_doc, serialize_list
 
 operadores_bp = Blueprint("operadores", __name__)
 
-
 @operadores_bp.get("")
 def listar_operadores():
     return jsonify(serialize_list(db.listar_operadores())), 200
-
 
 @operadores_bp.post("")
 def crear_operador():
@@ -31,14 +29,12 @@ def crear_operador():
         return jsonify({"mensaje": "Base de datos no disponible."}), 503
     return jsonify(serialize_doc(creado)), 201
 
-
 @operadores_bp.get("/<id_operador>")
 def obtener_operador(id_operador):
     operador = db.obtener_operador(id_operador)
     if operador is None:
         return jsonify({"mensaje": "Operador no encontrado."}), 404
     return jsonify(serialize_doc(operador)), 200
-
 
 @operadores_bp.put("/<id_operador>")
 def actualizar_operador(id_operador):
@@ -61,7 +57,6 @@ def actualizar_operador(id_operador):
 
     db.actualizar_operador(id_operador, cambios)
     return jsonify(serialize_doc(db.obtener_operador(id_operador))), 200
-
 
 @operadores_bp.delete("/<id_operador>")
 def eliminar_operador(id_operador):

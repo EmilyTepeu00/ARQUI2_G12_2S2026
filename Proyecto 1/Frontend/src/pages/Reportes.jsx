@@ -1,8 +1,9 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { FileDown, FileText, User } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { Card, CardHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
+import { PageHeader } from "../components/ui/PageHeader";
 import { useAuth } from "../context/AuthContext";
 import { useOperadores } from "../hooks/useOperadores";
 import { descargarReportePdf, descargarReportePorOperador } from "../api/reports";
@@ -25,31 +26,26 @@ export function Reportes() {
   };
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <Card>
-        <CardHeader
-          title="Reporte general en PDF"
-          subtitle="Resumen del estado de la incubadora y las lecturas registradas"
-          icon={<FileText size={18} />}
-        />
-        <div className="space-y-4 px-6 pb-6">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-400">Técnico responsable (opcional)</span>
-            <input value={tecnico} onChange={(e) => setTecnico(e.target.value)} placeholder="Nombre del técnico" className="input" />
-          </label>
+    <div className="space-y-8">
+      <PageHeader eyebrow="Exportar" title="Reportes" description="Documentos PDF generados con los datos más recientes de la incubadora." />
 
-          <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
-            El reporte incluye la información del proyecto, el técnico indicado y los datos más recientes capturados por los sensores del Arduino.
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Reporte general" subtitle="Información del proyecto, técnico responsable y últimas lecturas de los sensores" />
+          <div className="space-y-4 p-5">
+            <label className="flex flex-col gap-1.5">
+              <span className="label">Técnico responsable (opcional)</span>
+              <input value={tecnico} onChange={(e) => setTecnico(e.target.value)} placeholder="Nombre del técnico" className="input" />
+            </label>
+            <Button onClick={handleDownload} disabled={loading} className="w-full">
+              <FileDown size={15} />
+              {loading ? "Generando reporte..." : "Descargar PDF"}
+            </Button>
           </div>
+        </Card>
 
-          <Button onClick={handleDownload} disabled={loading} className="w-full">
-            <FileDown size={16} />
-            {loading ? "Generando reporte..." : "Descargar reporte PDF"}
-          </Button>
-        </div>
-      </Card>
-
-      <ReportePorOperador usuario={usuario} esAdministrador={esAdministrador} />
+        <ReportePorOperador usuario={usuario} esAdministrador={esAdministrador} />
+      </div>
     </div>
   );
 }
@@ -81,12 +77,11 @@ function ReportePorOperador({ usuario, esAdministrador }) {
     <Card>
       <CardHeader
         title="Reporte por operador"
-        subtitle="Como administrador puede descargar el reporte individual de cualquier operador"
-        icon={<User size={18} />}
+        subtitle="Reporte individual de cualquier operador registrado"
       />
-      <div className="space-y-4 px-6 pb-6">
+      <div className="space-y-4 p-5">
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-slate-400">Operador</span>
+          <span className="label">Operador</span>
           <select value={idOperador} onChange={(e) => setIdOperador(e.target.value)} className="input" disabled={loadingOperadores}>
             <option value="">Selecciona un operador...</option>
             {operadores.map((op) => (
@@ -96,8 +91,8 @@ function ReportePorOperador({ usuario, esAdministrador }) {
         </label>
 
         <Button onClick={handleDownload} disabled={loading || !idOperador} className="w-full">
-          <FileDown size={16} />
-          {loading ? "Generando reporte..." : "Descargar reporte del operador"}
+          <FileDown size={15} />
+          {loading ? "Generando reporte..." : "Descargar PDF del operador"}
         </Button>
       </div>
     </Card>

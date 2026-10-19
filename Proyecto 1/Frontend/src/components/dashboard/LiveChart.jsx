@@ -1,17 +1,11 @@
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardHeader } from "../ui/Card";
-import { Activity } from "lucide-react";
 import { formatTime } from "../../utils/format";
 import { EmptyState } from "../ui/EmptyState";
+
+const TEMP = "#ff9f6b";
+const HUM = "#6f8bff";
+const AXIS = { fill: "#7c84a3", fontSize: 11 };
 
 export function LiveChart({ history }) {
   const data = history.map((h) => ({
@@ -23,85 +17,36 @@ export function LiveChart({ history }) {
   return (
     <Card>
       <CardHeader
-        title="Tendencia en vivo"
-        subtitle="Temperatura y humedad de las últimas lecturas"
-        icon={<Activity size={18} />}
+        title="Tendencia"
+        subtitle="Últimas lecturas recibidas en esta sesión"
+        action={
+          <div className="flex gap-4 text-xs text-ink-2">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: TEMP }} /> Temp °C</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: HUM }} /> Hum %</span>
+          </div>
+        }
       />
-      <div className="h-72 px-2 pb-4 sm:px-4">
+      <div className="h-72 p-4">
         {data.length < 2 ? (
           <EmptyState
-            title="Esperando datos suficientes"
-            description="La gráfica aparecerá en cuanto lleguen al menos dos lecturas del Arduino."
+            title="Esperando datos"
+            description="La gráfica aparece en cuanto lleguen al menos dos lecturas del Arduino."
           />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 12, left: -12, bottom: 0 }}>
-              <defs>
-                <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="humGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#38bdf8" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis
-                dataKey="time"
-                tick={{ fill: "#64748b", fontSize: 11 }}
-                axisLine={{ stroke: "#1e293b" }}
-                tickLine={false}
-                minTickGap={24}
-              />
-              <YAxis
-                yAxisId="temp"
-                tick={{ fill: "#64748b", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={36}
-                domain={["dataMin - 2", "dataMax + 2"]}
-              />
-              <YAxis
-                yAxisId="hum"
-                orientation="right"
-                tick={{ fill: "#64748b", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={36}
-                domain={["dataMin - 5", "dataMax + 5"]}
-              />
+            <LineChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="time" tick={AXIS} axisLine={{ stroke: "rgba(255,255,255,0.1)" }} tickLine={false} minTickGap={32} />
+              <YAxis yAxisId="temp" tick={AXIS} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => v.toFixed(0)} domain={["dataMin - 2", "dataMax + 2"]} />
+              <YAxis yAxisId="hum" orientation="right" tick={AXIS} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => v.toFixed(0)} domain={["dataMin - 5", "dataMax + 5"]} />
               <Tooltip
-                contentStyle={{
-                  background: "#0f172a",
-                  border: "1px solid #1e293b",
-                  borderRadius: 12,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: "#94a3b8" }}
+                contentStyle={{ background: "rgba(18,25,51,0.9)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, fontSize: 12, backdropFilter: "blur(12px)" }}
+                labelStyle={{ color: "#7c84a3" }}
+                cursor={{ stroke: "rgba(255,255,255,0.2)", strokeWidth: 1 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12, color: "#94a3b8" }} />
-              <Area
-                yAxisId="temp"
-                type="monotone"
-                dataKey="Temperatura"
-                stroke="#fbbf24"
-                strokeWidth={2}
-                fill="url(#tempGradient)"
-                dot={false}
-                isAnimationActive={false}
-              />
-              <Area
-                yAxisId="hum"
-                type="monotone"
-                dataKey="Humedad"
-                stroke="#38bdf8"
-                strokeWidth={2}
-                fill="url(#humGradient)"
-                dot={false}
-                isAnimationActive={false}
-              />
-            </AreaChart>
+              <Line yAxisId="temp" type="monotone" dataKey="Temperatura" stroke={TEMP} strokeWidth={2.25} dot={false} isAnimationActive={false} />
+              <Line yAxisId="hum" type="monotone" dataKey="Humedad" stroke={HUM} strokeWidth={2.25} dot={false} isAnimationActive={false} />
+            </LineChart>
           </ResponsiveContainer>
         )}
       </div>

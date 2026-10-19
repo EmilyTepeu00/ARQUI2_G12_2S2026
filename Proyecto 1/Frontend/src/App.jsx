@@ -19,9 +19,9 @@ function App() {
         <Toaster
           position="top-right"
           toastOptions={{
-            style: { background: "#0f172a", color: "#e2e8f0", border: "1px solid #1e293b", fontSize: "13px" },
-            success: { iconTheme: { primary: "#34d399", secondary: "#0f172a" } },
-            error: { iconTheme: { primary: "#f87171", secondary: "#0f172a" } },
+            style: { background: "rgba(18,25,51,0.85)", color: "#f2f4fb", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "999px", fontSize: "13px", backdropFilter: "blur(16px)" },
+            success: { iconTheme: { primary: "#3ddc97", secondary: "#121933" } },
+            error: { iconTheme: { primary: "#ff6b6b", secondary: "#121933" } },
           }}
         />
         <Routes>

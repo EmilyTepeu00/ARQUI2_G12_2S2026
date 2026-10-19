@@ -1,12 +1,4 @@
-"""Publicacion de la especificacion OpenAPI + Swagger UI.
-
-  GET /api/openapi.yaml  -> la especificacion tal cual, para Postman/Insomnia
-  GET /api/openapi.json  -> la misma especificacion en JSON
-  GET /api/docs          -> Swagger UI navegable
-
-Swagger UI se sirve con los archivos que trae flask-swagger-ui, no desde un CDN:
-la demo tiene que funcionar sin internet.
-"""
+"""Publicacion de la especificacion OpenAPI + Swagger UI."""
 
 import os
 
@@ -26,7 +18,6 @@ docs_bp = Blueprint("docs", __name__)
 
 _cache = {"spec": None, "mtime": None}
 
-
 def cargar_spec() -> dict:
     """Lee el YAML y lo recarga solo si cambio en disco."""
     try:
@@ -43,8 +34,6 @@ def cargar_spec() -> dict:
             log.error("openapi.yaml no se pudo leer: %s", exc)
             return {}
 
-        # El servidor por defecto sigue el puerto real del backend, sin
-        # duplicar el que ya viniera declarado en el YAML.
         spec.setdefault("servers", [])
         url_actual = f"http://localhost:{config.FLASK_PORT}"
         if not any(s.get("url") == url_actual for s in spec["servers"]):
@@ -57,14 +46,12 @@ def cargar_spec() -> dict:
 
     return _cache["spec"]
 
-
 @docs_bp.get("/openapi.json")
 def spec_json():
     spec = cargar_spec()
     if not spec:
         return jsonify({"mensaje": "La especificación OpenAPI no está disponible."}), 500
     return jsonify(spec), 200
-
 
 @docs_bp.get("/openapi.yaml")
 def spec_yaml():
@@ -74,7 +61,6 @@ def spec_yaml():
     except OSError:
         return jsonify({"mensaje": "La especificación OpenAPI no está disponible."}), 500
     return Response(contenido, mimetype="application/yaml")
-
 
 def registrar_documentacion(app):
     """Monta /api/openapi.* y, si la librería está instalada, /api/docs."""

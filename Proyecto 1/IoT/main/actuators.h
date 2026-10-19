@@ -37,6 +37,7 @@ void apagarTodosLosActuadores();
 void servoAlternarPosicion();   // cambia el ángulo objetivo (izquierda <-> derecha)
 void servoCentrar();            // deja como objetivo la posición central
 void servoPasoSuave();          // avanza 1 grado hacia el objetivo (llamar periódicamente)
+bool servoRotando();
 
 // Entradas digitales
 int  procesarFinesDeCarrera();

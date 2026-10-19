@@ -11,7 +11,6 @@ from src.mqtt import mqtt_publisher
 puerta_bp = Blueprint("puerta", __name__)
 log = get_logger("api.puerta")
 
-
 def _parsear_fecha(valor):
     if not valor:
         return None
@@ -21,12 +20,10 @@ def _parsear_fecha(valor):
         return None
     return fecha if fecha.tzinfo else fecha.replace(tzinfo=timezone.utc)
 
-
 def _rango_por_defecto():
     hasta = datetime.now(timezone.utc)
     desde = hasta - timedelta(days=7)
     return desde, hasta
-
 
 @puerta_bp.get("/eventos")
 def listar_eventos():
@@ -45,7 +42,6 @@ def listar_eventos():
     )
     return jsonify(serialize_list(eventos)), 200
 
-
 @puerta_bp.get("/resumen")
 def resumen_puerta():
     """Conteo de veces abierta/cerrada y saldo de huevos"""
@@ -61,7 +57,6 @@ def resumen_puerta():
     resumen["desde"] = desde.isoformat()
     resumen["hasta"] = hasta.isoformat()
     return jsonify(resumen), 200
-
 
 @puerta_bp.post("/eventos")
 def registrar_evento():

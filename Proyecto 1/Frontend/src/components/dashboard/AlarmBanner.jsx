@@ -1,22 +1,15 @@
-import { AlertTriangle } from "lucide-react";
-
 export function AlarmBanner({ lectura }) {
   if (!lectura?.alarma) return null;
 
   return (
-    <div className="animate-fade-in-up flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4">
-      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
-        <span className="animate-pulse-ring absolute h-10 w-10 rounded-full bg-red-500/40" />
-        <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-red-500/20 text-red-400">
-          <AlertTriangle size={20} />
-        </span>
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-red-300">Alarma activa en la incubadora</p>
-        <p className="text-xs text-red-400/80">
-          Temperatura o humedad fuera del rango seguro. Revisa el panel y el historial de alarmas.
-        </p>
-      </div>
+    <div role="alert" className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-bad/40 bg-bad/20 px-5 py-3.5 text-white shadow-[0_0_40px_-10px] shadow-bad backdrop-blur-xl">
+      <span className="flex items-center gap-2 text-sm font-semibold text-bad">
+        <span className="h-2 w-2 animate-blink rounded-full bg-bad shadow-[0_0_10px] shadow-bad" />
+        Alarma activa
+      </span>
+      <span className="text-sm text-ink-2">
+        Temperatura o humedad fuera del rango seguro. Revisa la incubadora y el historial de alarmas.
+      </span>
     </div>
   );
 }

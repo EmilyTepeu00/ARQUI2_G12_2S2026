@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from bson.errors import InvalidId
 
-
 def serialize_doc(doc):
     if doc is None:
         return None
@@ -19,10 +18,8 @@ def serialize_doc(doc):
             result[key] = value
     return result
 
-
 def serialize_list(docs):
     return [serialize_doc(d) for d in docs]
-
 
 def to_object_id(raw_id):
     if raw_id is None:
@@ -31,7 +28,6 @@ def to_object_id(raw_id):
         return ObjectId(raw_id)
     except (InvalidId, TypeError):
         return raw_id
-
 
 class LecturaSensor:
     __slots__ = (
@@ -98,7 +94,6 @@ class LecturaSensor:
             "puerta_abierta": self.puerta_abierta,
         }
 
-
 class LoteHuevo:
     CAMPOS_REQUERIDOS = ("codigo", "nombre_lote", "cantidad_huevos")
     ESTADOS_VALIDOS = {"incubando", "eclosionado", "descartado"}
@@ -144,7 +139,6 @@ class LoteHuevo:
             "observaciones": data.get("observaciones", ""),
             "estado": data.get("estado", "incubando"),
         }
-
 
 class Operador:
     """Operador 1 / 2 y administrador"""
@@ -205,12 +199,11 @@ class Operador:
             "activo": bool(data.get("activo", True)),
         }
 
-
 class EventoPuerta:
     """Apertura/cierre de la incubadora con identificación del operador."""
 
     ACCIONES_VALIDAS = {"abrir", "cerrar"}
-    METODOS_VALIDOS = {"rfid", "huella", "llave", "manual"}
+    METODOS_VALIDOS = {"rfid", "bluetooth", "huella", "llave", "manual"}
 
     @staticmethod
     def validar(data: dict):

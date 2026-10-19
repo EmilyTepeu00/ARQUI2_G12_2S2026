@@ -1,9 +1,3 @@
-"""Perfil por operador: /api/perfil/*
-
-Cada operador ve unicamente sus propios diagnosticos e informes; el
-administrador puede consultar los de cualquiera con ?id_operador=.
-"""
-
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
@@ -23,7 +17,6 @@ from src.serial.reader import serial_reader
 
 perfil_bp = Blueprint("perfil", __name__)
 
-
 def _parsear_fecha(valor):
     if not valor:
         return None
@@ -32,7 +25,6 @@ def _parsear_fecha(valor):
     except ValueError:
         return None
     return fecha if fecha.tzinfo else fecha.replace(tzinfo=timezone.utc)
-
 
 def _rango(defecto_dias=7):
     """Rango de consulta: ?desde/?hasta ISO-8601, o los ultimos N dias."""
@@ -45,7 +37,6 @@ def _rango(defecto_dias=7):
             dias = defecto_dias
         desde = hasta - timedelta(days=dias)
     return desde, hasta
-
 
 @perfil_bp.get("")
 @requiere_auth
@@ -78,7 +69,6 @@ def mi_perfil():
         ),
         200,
     )
-
 
 @perfil_bp.get("/diagnosticos")
 @requiere_auth
@@ -116,7 +106,6 @@ def mis_diagnosticos():
         200,
     )
 
-
 @perfil_bp.get("/informes")
 @requiere_auth
 def mis_informes():
@@ -144,7 +133,6 @@ def mis_informes():
         ),
         200,
     )
-
 
 @perfil_bp.get("/reporte.pdf")
 @requiere_auth

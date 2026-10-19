@@ -318,6 +318,145 @@
       }
     },
     {
+      "id": 106,
+      "type": "stat",
+      "title": "Bandeja: espacios libres (MQTT)",
+      "description": "Finales de carrera del nodo. Llega por el topic retenido sensores/lectura: al abrir el dashboard se ve el ultimo estado sin esperar publicacion nueva.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "smartegg-mqtt"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "smartegg-mqtt"
+          },
+          "topic": "smartegg/$nodo/sensores/lectura"
+        }
+      ],
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 6,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^espacios_libres$/",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 107,
+      "type": "table",
+      "title": "Puerta: accesos en vivo (MQTT)",
+      "description": "Topic puerta/evento, QoS 1 y sin retener: cada apertura o cierre con tarjeta RFID aparece aqui en el momento en que el nodo lo reporta.",
+      "datasource": {
+        "type": "grafana-mqtt-datasource",
+        "uid": "smartegg-mqtt"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-mqtt-datasource",
+            "uid": "smartegg-mqtt"
+          },
+          "topic": "smartegg/$nodo/puerta/evento"
+        }
+      ],
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "accion"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "abrir": {
+                        "text": "ABIERTA",
+                        "color": "orange",
+                        "index": 0
+                      },
+                      "cerrar": {
+                        "text": "cerrada",
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      }
+    },
+    {
       "id": 105,
       "type": "row",
       "title": "Estado actual y contexto (API REST sobre la base de datos)",
@@ -327,7 +466,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 15
       }
     },
     {
@@ -339,7 +478,7 @@
         "h": 6,
         "w": 5,
         "x": 0,
-        "y": 11
+        "y": 16
       },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -416,7 +555,7 @@
         "h": 6,
         "w": 5,
         "x": 5,
-        "y": 11
+        "y": 16
       },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -493,7 +632,7 @@
         "h": 6,
         "w": 4,
         "x": 10,
-        "y": 11
+        "y": 16
       },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -572,7 +711,7 @@
         "h": 6,
         "w": 10,
         "x": 14,
-        "y": 11
+        "y": 16
       },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -677,7 +816,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 22
       },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
@@ -789,7 +928,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 22
       },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",

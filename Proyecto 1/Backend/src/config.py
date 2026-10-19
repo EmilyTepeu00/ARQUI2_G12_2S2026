@@ -4,13 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 def _get_bool(env_name: str, default: bool) -> bool:
     value = os.getenv(env_name)
     if value is None:
         return default
     return value.strip().lower() in ("1", "true", "yes", "on", "si", "sí")
-
 
 def _get_float(env_name: str, default: float) -> float:
     value = os.getenv(env_name)
@@ -19,7 +17,6 @@ def _get_float(env_name: str, default: float) -> float:
     except ValueError:
         return default
 
-
 def _get_int(env_name: str, default: int) -> int:
     value = os.getenv(env_name)
     try:
@@ -27,13 +24,11 @@ def _get_int(env_name: str, default: int) -> int:
     except ValueError:
         return default
 
-
 def _get_str(env_name: str, default: str) -> str:
     value = os.getenv(env_name)
     if value is None or value.strip() == "":
         return default
     return value.strip()
-
 
 class Config:
     # Servidor Flask
@@ -81,8 +76,7 @@ class Config:
     HUM_MIN = _get_float("HUM_MIN", 50.0)
     HUM_MAX = _get_float("HUM_MAX", 65.0)
 
-    # --- Autenticacion y roles ---
-    # Si se desactiva, todos los endpoints quedan abiertos. Solo para depurar.
+    # Autenticacion y roles
     AUTH_ENABLED = _get_bool("AUTH_ENABLED", True)
     JWT_SECRET = _get_str("JWT_SECRET", "cambiar-esta-clave-en-produccion")
     JWT_ALGORITMO = _get_str("JWT_ALGORITMO", "HS256")
@@ -109,6 +103,5 @@ class Config:
         "REPORT_PROJECT_NAME", "SmartEgg - Plataforma IoT Distribuida"
     )
     REPORT_TIMEZONE_LABEL = _get_str("REPORT_TIMEZONE_LABEL", "UTC")
-
 
 config = Config()

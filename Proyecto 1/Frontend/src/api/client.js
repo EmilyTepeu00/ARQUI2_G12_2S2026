@@ -1,8 +1,3 @@
-// Por defecto se usan rutas relativas ("/api/..."), asi el navegador pega al
-// mismo origen desde el que se sirvio la pagina y el proxy (Caddy) reparte.
-// Eso evita CORS y hace que la app funcione igual en localhost que detras del
-// tunel publico, sin recompilar. VITE_API_BASE_URL solo se define para apuntar
-// a un backend en otro host.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
 
 // Mismo nombre de llave que usa AuthContext para guardar el token

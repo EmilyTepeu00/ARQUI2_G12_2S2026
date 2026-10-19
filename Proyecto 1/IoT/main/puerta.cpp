@@ -1,11 +1,3 @@
-/*
-  puerta.cpp - SmartEgg: control de acceso de la puerta
-
-  Control de acceso: solo las tarjetas registradas en la tabla OPERADORES
-  pueden destrabar y trabar la incubadora. Cada apertura y cierre se encola
-  como evento para que la tarea serial lo publique en JSON.
-*/
-
 #include "puerta.h"
 
 #if PUERTA_HABILITADA
@@ -19,30 +11,14 @@
 const int CERRADURA_ANGULO_BLOQUEADA    = 0;
 const int CERRADURA_ANGULO_DESBLOQUEADA = 90;
 
-/* ---------------------------------------------------------------------------
-   TARJETAS DE LOS OPERADORES  <-- lo unico que hay que editar para dar acceso
-
-   Como registrar una tarjeta real:
-     1. Cargar el sketch con la tabla como esta (uidLongitud = 0).
-     2. Abrir el monitor serial a 9600 y pasar la tarjeta por el lector.
-     3. El nodo responde con la linea:
-          {"evento":"tarjeta_no_registrada","uid":"A1B2C3D4"}
-     4. Copiar ese UID byte por byte al renglon del operador y poner
-        uidLongitud con la cantidad de bytes (4 en el ejemplo, 7 en tarjetas
-        MIFARE Ultralight/DESFire).
-
-   Ejemplo ya registrado para el UID "A1B2C3D4":
-     {"OP1", {0xA1, 0xB2, 0xC3, 0xD4}, 4},
-
-   Mientras uidLongitud sea 0 el renglon se ignora: ninguna tarjeta abre por
-   ese operador y todas siguen reportandose como tarjeta_no_registrada.
---------------------------------------------------------------------------- */
 static const OperadorAutorizado OPERADORES[NUM_OPERADORES] = {
     {"OP1", {0x59, 0x15, 0x91, 0x29}, 4},
     {"OP2", {0x61, 0xC0, 0xE7, 0xB0}, 4},
+    {"ADMIN", {}, 0},   // sin tarjeta: el administrador solo entra desde la app
 };
 
-static const char METODO_ACCESO[] = "rfid";
+static const char METODO_RFID[] = "rfid";
+static const char METODO_APP[]  = "bluetooth";
 
 enum EstadoCerradura { CERRADURA_TRABADA, CERRADURA_DESTRABADA };
 
@@ -89,7 +65,7 @@ static void cerraduraPasoSuave() {
   servoCerradura.write(anguloActualCerradura);
 }
 
-static void destrabar(const char *idOperador) {
+static void destrabar(const char *idOperador, const char *metodo) {
   anguloObjetivoCerradura   = CERRADURA_ANGULO_DESBLOQUEADA;
   estadoCerradura           = CERRADURA_DESTRABADA;
   espaciosLibresAlDestrabar = estadoLeer().espaciosLibres;
@@ -99,22 +75,20 @@ static void destrabar(const char *idOperador) {
 
   estadoSetPuertaAbierta(true);
   estadoSetOperadorActual(idOperador);
-  estadoNotificarEventoPuerta("abrir", idOperador, METODO_ACCESO, 0);
+  estadoNotificarEventoPuerta("abrir", idOperador, metodo, 0);
 }
 
-static void trabar(const char *idOperador) {
+static void trabar(const char *idOperador, const char *metodo) {
   anguloObjetivoCerradura = CERRADURA_ANGULO_BLOQUEADA;
   estadoCerradura         = CERRADURA_TRABADA;
 
-  // Espacios libres antes menos espacios libres ahora:
-  //   positivo -> ingresaron huevos, negativo -> retiraron huevos.
   int huevosDelta = espaciosLibresAlDestrabar - estadoLeer().espaciosLibres;
 
   operadorQueAbrio[0] = '\0';
 
   estadoSetPuertaAbierta(false);
   estadoSetOperadorActual("");
-  estadoNotificarEventoPuerta("cerrar", idOperador, METODO_ACCESO, huevosDelta);
+  estadoNotificarEventoPuerta("cerrar", idOperador, metodo, huevosDelta);
 }
 
 void puertaInit() {
@@ -126,8 +100,7 @@ void puertaInit() {
   anguloActualCerradura   = CERRADURA_ANGULO_BLOQUEADA;
   anguloObjetivoCerradura = CERRADURA_ANGULO_BLOQUEADA;
 
-  // Aviso de que operadores tienen tarjeta registrada. El backend ignora las
-  // lineas que no son JSON, asi que esto solo sirve para el monitor serial.
+  // Aviso de que operadores tienen tarjeta registrada.
   for (byte i = 0; i < NUM_OPERADORES; i++) {
     Serial.print(F("Puerta: operador "));
     Serial.print(OPERADORES[i].id);
@@ -148,8 +121,6 @@ void puertaActualizar() {
     return;
   }
 
-  // Anti-rebote: si la tarjeta se queda apoyada, el lector la vuelve a
-  // detectar cada pocos milisegundos y la cerradura oscilaria sin parar.
   if (ultimaLecturaMs != 0 && (millis() - ultimaLecturaMs) < PUERTA_COOLDOWN_MS) {
     lector.PICC_HaltA();
     lector.PCD_StopCrypto1();
@@ -163,9 +134,9 @@ void puertaActualizar() {
     const char *idOperador = OPERADORES[indice].id;
 
     if (estadoCerradura == CERRADURA_TRABADA) {
-      destrabar(idOperador);
+      destrabar(idOperador, METODO_RFID);
     } else {
-      trabar(idOperador);
+      trabar(idOperador, METODO_RFID);
     }
   } else {
     char uidHex[UID_LONGITUD_MAX * 2 + 1];
@@ -175,6 +146,32 @@ void puertaActualizar() {
 
   lector.PICC_HaltA();
   lector.PCD_StopCrypto1();
+}
+
+bool puertaEstaDestrabada() {
+  return estadoCerradura == CERRADURA_DESTRABADA;
+}
+
+ResultadoApp puertaAccionApp(bool abrir, const char *idOperador) {
+  int indice = -1;
+  for (byte i = 0; i < NUM_OPERADORES; i++) {
+    if (strcasecmp(OPERADORES[i].id, idOperador) == 0) {
+      indice = i;
+      break;
+    }
+  }
+  if (indice < 0) return APP_ERR_OPERADOR;
+
+  // Se usa el id de la tabla, no el recibido: queda en RAM estatica y bien formado.
+  const char *id = OPERADORES[indice].id;
+  if (abrir) {
+    if (estadoCerradura == CERRADURA_DESTRABADA) return APP_ERR_ESTADO;
+    destrabar(id, METODO_APP);
+  } else {
+    if (estadoCerradura == CERRADURA_TRABADA) return APP_ERR_ESTADO;
+    trabar(id, METODO_APP);
+  }
+  return APP_OK;
 }
 
 #endif  // PUERTA_HABILITADA

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Boxes, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useLotes } from "../hooks/useLotes";
-import { Card, CardHeader } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -58,29 +58,15 @@ export function Lotes() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader
-          title="Lotes de incubación"
-          subtitle="Gestiona los lotes de huevos registrados en el sistema"
-          icon={<Boxes size={18} />}
-          action={
-            <Button onClick={openCreate} className="px-3 py-2 text-xs">
-              <Plus size={14} /> Nuevo lote
-            </Button>
-          }
-        />
-        <div className="px-5 pb-4">
-          <div className="relative max-w-sm">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por código, nombre o responsable..."
-              className="input pl-9"
-            />
-          </div>
+      <PageHeader eyebrow="Inventario" title="Lotes" description="Lotes de huevos registrados en el sistema.">
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar código, nombre o responsable" className="input w-72 max-w-full py-1.5 pl-9" />
         </div>
-      </Card>
+        <Button onClick={openCreate}>
+          <Plus size={15} /> Nuevo lote
+        </Button>
+      </PageHeader>
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -92,7 +78,6 @@ export function Lotes() {
         <EmptyState title="Error al cargar lotes" description={error} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<Boxes size={32} />}
           title={lotes.length === 0 ? "Aún no hay lotes registrados" : "Sin resultados"}
           description={
             lotes.length === 0
@@ -101,8 +86,8 @@ export function Lotes() {
           }
           action={
             lotes.length === 0 && (
-              <Button onClick={openCreate} className="mt-2 px-3 py-2 text-xs">
-                <Plus size={14} /> Nuevo lote
+              <Button onClick={openCreate} className="mt-2">
+                <Plus size={15} /> Nuevo lote
               </Button>
             )
           }

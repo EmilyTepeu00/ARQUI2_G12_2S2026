@@ -4,7 +4,6 @@ from src.models import LoteHuevo, serialize_doc, serialize_list, to_object_id
 
 lotes_bp = Blueprint("lotes", __name__)
 
-
 @lotes_bp.post("")
 def crear_lote():
     data = request.get_json(silent=True) or {}
@@ -17,12 +16,10 @@ def crear_lote():
         return jsonify({"mensaje": "Base de datos no disponible."}), 503
     return jsonify(serialize_doc(lote_creado)), 201
 
-
 @lotes_bp.get("")
 def listar_lotes():
     lotes = db.listar_lotes()
     return jsonify(serialize_list(lotes)), 200
-
 
 @lotes_bp.get("/<lote_id>")
 def obtener_lote(lote_id):
@@ -31,7 +28,6 @@ def obtener_lote(lote_id):
     if lote is None:
         return jsonify({"mensaje": "Lote no encontrado."}), 404
     return jsonify(serialize_doc(lote)), 200
-
 
 @lotes_bp.put("/<lote_id>")
 def actualizar_lote(lote_id):
@@ -61,7 +57,6 @@ def actualizar_lote(lote_id):
     db.actualizar_lote(oid, cambios)
     lote_actualizado = db.obtener_lote(oid)
     return jsonify(serialize_doc(lote_actualizado)), 200
-
 
 @lotes_bp.delete("/<lote_id>")
 def eliminar_lote(lote_id):

@@ -1,11 +1,4 @@
-"""Pruebas de la capa de datos (src/db/) contra un MongoDB real.
-
-Usa una base aparte (smartegg_test_db) y la borra al terminar: no toca los
-datos de smartegg.
-
-    docker compose up -d mongo          # en Proyecto_1/infra
-    python tools/test_db.py             # en Proyecto_1/Backend
-"""
+"""Pruebas de la capa de datos (src/db/) contra un MongoDB real."""
 
 import os
 import sys
@@ -15,9 +8,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os, sys, random
 from datetime import datetime, timedelta, timezone
 
-# La URI se hereda del entorno si ya viene definida, para que el mismo archivo
-# corra en los dos lados: en el anfitrion apunta a localhost, y dentro del
-# contenedor del backend la variable ya trae mongodb://mongo:27017.
 os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
 os.environ["MONGO_DB_NAME"] = "smartegg_test_db"
 os.environ["MONGO_REQUIRED"] = "false"
@@ -48,7 +38,7 @@ db._crear_indices()
 
 print("\n== lecturas ==")
 ahora = datetime.now(timezone.utc)
-for i in range(240):   # 4 horas, una por minuto
+for i in range(240):  # 4 horas, una por minuto
     db.guardar_lectura({
         "temperatura": 37.5 + random.uniform(-1.5, 1.5),
         "humedad": 57 + random.uniform(-8, 8),

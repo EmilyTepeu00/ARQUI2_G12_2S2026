@@ -16,7 +16,6 @@ log = get_logger("api.auth")
 
 PASSWORD_MIN = 6
 
-
 def _publico(usuario: dict) -> dict:
     """Vista del usuario sin datos sensibles."""
     return {
@@ -26,7 +25,6 @@ def _publico(usuario: dict) -> dict:
         "id_operador": usuario.get("id_operador"),
         "activo": usuario.get("activo", True),
     }
-
 
 @auth_bp.post("/login")
 def login():
@@ -44,8 +42,6 @@ def login():
         )
 
     usuario = usuarios_repo.obtener(username)
-    # Mismo mensaje para usuario inexistente y contraseña mala: no se filtra
-    # si el usuario existe o no.
     if usuario is None or not verificar_password(usuario.get("password_hash"), password):
         log.warning("Intento de acceso fallido para '%s'.", username)
         return jsonify({"mensaje": "Usuario o contraseña incorrectos."}), 401
@@ -69,7 +65,6 @@ def login():
         200,
     )
 
-
 @auth_bp.get("/yo")
 @requiere_auth
 def yo():
@@ -77,7 +72,6 @@ def yo():
     actual = usuario_actual()
     registro = usuarios_repo.obtener(actual.get("username"))
     return jsonify(_publico(registro or actual)), 200
-
 
 @auth_bp.post("/cambiar-password")
 @requiere_auth
@@ -108,12 +102,10 @@ def cambiar_password():
 
     return jsonify({"mensaje": "Contraseña actualizada correctamente."}), 200
 
-
 @auth_bp.get("/usuarios")
 @requiere_admin
 def listar_usuarios():
     return jsonify(serialize_list(usuarios_repo.listar())), 200
-
 
 @auth_bp.post("/usuarios")
 @requiere_admin
@@ -156,7 +148,6 @@ def crear_usuario():
 
     log.info("Usuario '%s' creado con rol %s.", username, rol)
     return jsonify(_publico(creado)), 201
-
 
 @auth_bp.delete("/usuarios/<username>")
 @requiere_admin

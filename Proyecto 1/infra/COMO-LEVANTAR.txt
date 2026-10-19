@@ -1,0 +1,375 @@
+===============================================================================
+  SMARTEGG - COMO LEVANTAR Y APAGAR LA PLATAFORMA
+===============================================================================
+
+  Todos los comandos se corren parados en:  Proyecto_1/infra
+  Requisitos en la maquina:  git  y  Docker (con Docker Compose).
+  No hace falta instalar Python ni Node: todo va en contenedores.
+
+
+===============================================================================
+  1. PRIMERA VEZ EN UNA MAQUINA
+===============================================================================
+
+  git clone https://github.com/jordonez-usac/AYC2_G12.git
+  cd AYC2_G12/Proyecto_1/infra
+  cp .env.example .env
+
+  Editar .env y cambiar, como minimo:
+
+      JWT_SECRET=<algo largo>        generalo con:  openssl rand -hex 32
+      ADMIN_PASSWORD=<no admin123>
+      GRAFANA_ADMIN_PASSWORD=<no admin>
+      SERIAL_ENABLED=false           poner true SOLO si el Arduino esta
+                                     conectado a ESTA maquina
+
+  Luego:
+
+      ./plataforma.sh arriba         (tarda 3-6 min la primera vez)
+      ./plataforma.sh verificar
+
+  Si "verificar" da algun FALLO, no sigas: resolvelo antes.
+
+  Queda disponible en:
+
+      http://localhost:8080/              la aplicacion web (frontend)
+      http://localhost:8080/api/docs      documentacion de la API (Swagger)
+      http://localhost:8080/grafana/      Grafana
+      http://localhost:8080/health        estado de los componentes
+
+  Todo entra por el 8080. Es el UNICO puerto que hay que exponer.
+
+
+===============================================================================
+  2. USO DE TODOS LOS DIAS
+===============================================================================
+
+      ./plataforma.sh arriba         levanta todo
+      ./plataforma.sh verificar      comprueba que responda
+      ./plataforma.sh estado         que esta corriendo
+      ./plataforma.sh abajo          apaga todo de forma segura
+
+  Despues de la primera vez arranca en segundos, no vuelve a tardar minutos.
+
+
+===============================================================================
+  3. LA BASE DE DATOS
+===============================================================================
+
+  No hay ningun paso manual: el compose levanta MongoDB, el volumen
+  smartegg_mongo_data conserva los datos entre reinicios, y el backend crea
+  los usuarios iniciales solo la primera vez.
+
+  CONFIGURACION
+  -------------
+  En .env, el backend dentro de Docker usa:
+
+      MONGO_URI=mongodb://mongo:27017      "mongo" es el nombre del servicio
+      MONGO_DB_NAME=smartegg
+      MONGO_REQUIRED=false                 false = el backend arranca igual
+                                           aunque la base no responda
+
+  Si en cambio corres el backend a mano en el anfitrion (por ejemplo en
+  Windows para leer el COM), ahi va Backend/.env con localhost:
+
+      MONGO_URI=mongodb://localhost:27017
+
+  MODO DEGRADADO
+  --------------
+  Con MONGO_REQUIRED=false, si Mongo no responde el backend NO se cae:
+  sigue leyendo el serial y publicando por MQTT, solo deja de persistir, y
+  reintenta la conexion cada MONGO_RECONNECT_DELAY segundos. En el log se ve:
+
+      Backend en modo degradado: sin persistencia.
+
+  En ese estado los POST devuelven 503 y GET /health marca base_datos: false.
+
+  MIRAR LOS DATOS
+  ---------------
+      docker compose exec mongo mongosh smartegg
+
+  Y adentro:
+
+      show collections
+      db.lecturas.countDocuments()
+      db.lecturas.find().sort({timestamp:-1}).limit(3)
+      db.aperturas_puerta.find().sort({timestamp:-1}).limit(5)
+      db.usuarios.find({}, {username:1, rol:1, id_operador:1, _id:0})
+      db.alarmas.find({activa:true})
+
+  Colecciones: lecturas, alarmas, lotes, operadores, aperturas_puerta,
+  usuarios.
+
+  RESPALDO Y RESTAURACION   <-- hacer esto ANTES de la defensa
+  -----------------------
+  Respaldar (deja una carpeta backup-AAAAMMDD con todo):
+
+      docker compose exec -T mongo mongodump --db=smartegg --archive \
+        > backup-$(date +%Y%m%d).archive
+
+  Restaurar:
+
+      docker compose exec -T mongo mongorestore --archive --drop \
+        < backup-AAAAMMDD.archive
+
+  Los .archive NO se suben al repositorio. Guardalos aparte.
+
+  OJO
+  ---
+  * El historial es append-only a proposito: las lecturas, alarmas y eventos
+    de puerta no se sobrescriben. No borres registros para "limpiar".
+  * ADMIN_PASSWORD del .env solo se usa para CREAR el usuario admin la
+    primera vez. Despues la clave vive en la base y editar el .env no la
+    cambia; hay que usar POST /api/auth/cambiar-password.
+  * Lo mismo pasa con Grafana (ver seccion 6).
+
+
+===============================================================================
+  4. EXPONERLO A INTERNET (CLOUDFLARE)
+===============================================================================
+
+      ./plataforma.sh publico
+
+  Imprime la URL publica, por ejemplo:
+
+      https://algo-random.trycloudflare.com
+
+  Para que Grafana se vea bien desde afuera, poner esa URL en .env:
+
+      GRAFANA_ROOT_URL=https://algo-random.trycloudflare.com/grafana/
+
+  y recargar solo Grafana:
+
+      docker compose up -d grafana
+
+  Comprobar que responde desde afuera:
+
+      ./plataforma.sh verificar https://algo-random.trycloudflare.com
+
+  Si te olvidaste la URL:
+
+      ./plataforma.sh url
+
+  LIMITES DEL TUNEL GRATUITO
+  --------------------------
+  * La URL es ALEATORIA y CAMBIA cada vez que se levanta el tunel.
+    No la anotes como fija ni la pongas en el README.
+  * Cloudflare corta cualquier peticion HTTP que tarde mas de 100 segundos
+    en responder (error 524). Eso mata el endpoint /api/sensores/stream,
+    que es un flujo SSE sin fin; no importa, porque es solo para depurar y
+    el tiempo real va por MQTT. Los WebSockets NO tienen ese limite.
+  * Maximo ~100 MB por peticion.
+  * Sin garantia de servicio: Cloudflare documenta estos tuneles como no
+    aptos para produccion y puede limitarlos sin aviso.
+  * El TLS se termina en Cloudflare, o sea que ellos ven el trafico.
+
+  SEGURIDAD
+  ---------
+  Mientras el tunel este arriba, TODA la plataforma esta en internet:
+  la API, Grafana y el broker MQTT (que hoy acepta conexiones anonimas,
+  o sea que cualquiera con la URL puede publicar alarmas falsas).
+
+  Cambia las claves ANTES de abrirlo y apagalo apenas termines.
+
+  El dia de la defensa: levantar el tunel UNA vez, ajustar Grafana, copiar
+  la URL y no reiniciar cloudflared hasta terminar.
+  Probalo desde el celular CON DATOS MOVILES, no con el wifi de la casa:
+  por wifi salis por la misma red y no estas probando nada.
+
+
+===============================================================================
+  5. APAGAR
+===============================================================================
+
+      ./plataforma.sh abajo
+
+  Eso baja el tunel primero y despues el resto, en el orden correcto, y
+  conserva los volumenes (el historial de Mongo, los dashboards de Grafana
+  y los mensajes retained del broker).
+
+  NUNCA uses  docker compose down -v  salvo que quieras borrar todo a
+  proposito. Ese -v destruye:
+
+      Mongo      lecturas, alarmas, lotes, operadores y usuarios
+      Grafana    dashboards, datasources Y la clave de admin
+      Mosquitto  los mensajes retained
+
+  Y NO uses  docker compose down  a secas si el tunel esta arriba: borra la
+  red pero deja vivo el contenedor del tunel, que queda apuntando a una red
+  que ya no existe. La proxima vez falla con "network not found".
+  Usa siempre el script.
+
+
+===============================================================================
+  6. LOS DASHBOARDS DE GRAFANA
+===============================================================================
+
+  Se cargan solos al levantar. No hay que importar nada a mano.
+
+      http://localhost:8080/grafana/
+
+  OJO: localhost:3000 a secas da 404. Grafana esta servida bajo la subruta
+  /grafana/, hay que entrar por el proxy.
+
+  Hay dos, en la carpeta SmartEgg:
+
+      SmartEgg - Tiempo real   temperatura y humedad en vivo, actuadores,
+                               alarmas y eventos de puerta. Sale del broker
+                               MQTT. Arranca vacio y se llena en segundos,
+                               PERO solo si el nodo esta publicando: hace
+                               falta el Arduino conectado o el simulador
+                               corriendo (Backend/tools/fake_serial.py).
+
+      SmartEgg - Historico     series por intervalo, alarmas por tipo,
+                               actividad por operador y resumen diario.
+                               Sale de la API REST (/api/historico/*).
+                               Tiene dos selectores arriba: cada cuantos
+                               minutos agrupar, y cuantos dias resumir.
+                               El rango de tiempo de arriba a la derecha
+                               tambien filtra.
+
+  POR QUE EL HISTORICO NO LEE MONGO DIRECTO
+  -----------------------------------------
+  Grafana no tiene datasource gratuito para MongoDB (el oficial es solo de la
+  version Enterprise). Asi que el historico se consulta por la API, que
+  devuelve los datos ya agregados por Mongo. Se puede comprobar sin abrir
+  Grafana:
+
+      curl -s "http://localhost:8080/api/historico/diario?dias=30"
+
+  SI EDITAS UN PANEL
+  ------------------
+  Los cambios hechos desde la interfaz viven en el volumen, NO en el
+  repositorio. Para que queden versionados:
+      Dashboard > Share > Export > Save to file
+  y reemplazar el .json en Proyecto_1/Grafana/provisioning/dashboards/.
+
+
+===============================================================================
+  7. SI ALGO FALLA
+===============================================================================
+
+  "port 1883 already in use"
+      Hay un Mosquitto instalado como servicio del sistema.
+      Solucion A:  sudo systemctl stop mosquitto
+      Solucion B:  en .env poner MQTT_PORT_HOST=11883
+
+  "network ... not found" al levantar el tunel
+      Quedo un contenedor viejo del tunel apuntando a una red que ya no
+      existe. Pasa si se apago con "docker compose down" a secas.
+          docker rm -f smartegg-tunel
+          ./plataforma.sh publico
+
+  El build falla con "Temporary failure in name resolution"
+      Docker no resuelve DNS dentro de los contenedores.
+          echo '{"dns":["1.1.1.1","8.8.8.8"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+  No lee el Arduino
+      1. Descomentar el bloque "devices:" del servicio backend en
+         docker-compose.yml y ajustar el dispositivo.
+      2. Ver cual es:  ls -l /dev/ttyACM* /dev/ttyUSB*
+         (un Mega 2560 suele ser /dev/ttyACM0, no ttyUSB0)
+      3. Dar permiso al usuario:  sudo usermod -aG dialout $USER
+         y volver a iniciar sesion.
+      En Windows NO se puede pasar un COM a un contenedor Linux: dejar
+      SERIAL_ENABLED=false y correr el backend aparte con python run.py.
+
+  "./plataforma.sh: Permission denied"
+      chmod +x plataforma.sh verificar.sh
+
+  No puedo entrar a Grafana
+      El usuario es "admin". GF_SECURITY_ADMIN_PASSWORD (o sea
+      GRAFANA_ADMIN_PASSWORD del .env) solo se aplica la PRIMERA vez que
+      Grafana crea su base interna. Si la cambiaste desde la interfaz, esa
+      es la que manda y el .env queda decorativo. Para resetearla:
+          docker compose exec grafana grafana cli admin reset-admin-password 'nueva'
+      Grafana ademas bloquea al usuario 5 minutos despues de 5 intentos
+      fallidos: si te bloqueaste, espera o reinicia el contenedor.
+
+  Grafana carga sin estilos o con enlaces rotos desde el tunel
+      Falta poner GRAFANA_ROOT_URL en .env con la URL del tunel.
+      Nota: como Grafana va bajo subruta, localhost:3000 a secas da 404.
+      Hay que entrar por localhost:8080/grafana/
+
+  El backend responde cosas viejas
+      La imagen esta desactualizada respecto al codigo.
+          docker compose up -d --build backend
+
+  El frontend no compila: "npm ci can only install packages when your
+  package.json and package-lock.json are in sync"
+      Alguien agrego una dependencia sin actualizar el lock de npm.
+      En Proyecto_1/Frontend:
+          npm install --package-lock-only
+      y commitear el package-lock.json.
+
+  La pagina carga pero no trae datos, o la consola dice "Mixed Content"
+      El frontend usa rutas relativas (/api, /mqtt) a proposito, para que
+      funcione igual en local y por el tunel. Si alguien puso una URL
+      absoluta en Frontend/.env (VITE_API_BASE_URL, VITE_MQTT_WS_URL),
+      quitala: sin esas variables se resuelve solo contra el mismo origen.
+
+  Los paneles de Grafana estan vacios
+      Tiempo real: no hay nadie publicando. Conecta el Arduino o corre el
+      simulador (Backend/tools/fake_serial.py).
+      Historico: el rango de tiempo no cubre fechas con datos. Comprueba
+      que haya con:
+          curl -s "http://localhost:8080/api/historico/diario?dias=30" 
+
+
+===============================================================================
+  8. USUARIOS QUE SE CREAN SOLOS
+===============================================================================
+
+  Al arrancar por primera vez, el backend crea estos usuarios de la API
+  (los valores salen de tu .env):
+
+      admin       / ADMIN_PASSWORD      rol administrador
+      operador1   / OP1_PASSWORD        rol operador_1, id OP1
+      operador2   / OP2_PASSWORD        rol operador_2, id OP2
+
+  Para obtener un token:
+
+      curl -s -X POST http://localhost:8080/api/auth/login \
+        -H 'Content-Type: application/json' \
+        -d '{"username":"operador1","password":"operador1"}'
+
+  Y usarlo en las peticiones protegidas:
+
+      curl -H "Authorization: Bearer <token>" http://localhost:8080/api/perfil
+
+  Mas comodo: entrar a http://localhost:8080/api/docs , ejecutar
+  POST /api/auth/login, copiar el token y pegarlo en el boton "Authorize".
+  Swagger lo manda solo en todas las peticiones siguientes.
+
+  Un operador solo ve SUS propios diagnosticos e informes. Si pide los de
+  otro con ?id_operador=, el parametro se ignora. Solo el administrador
+  puede consultar los de cualquiera.
+
+
+===============================================================================
+  9. QUE ES CADA SERVICIO
+===============================================================================
+
+  caddy       Proxy. Todo entra por el puerto 8080 y el reparte:
+              /            -> frontend
+              /api/*       -> backend
+              /mqtt        -> broker por WebSocket
+              /grafana/*   -> Grafana
+  frontend    La aplicacion web (React compilada, servida por Nginx)
+  backend     API REST, cliente MQTT y lector del puerto serial
+  mosquitto   Broker MQTT (1883 nativo, 9001 WebSocket)
+  mongo       Base de datos
+  grafana     Dashboards
+  cloudflared Tunel a internet. Solo se levanta con "plataforma.sh publico"
+
+  Volumenes (los borra solo "down -v"):
+
+      smartegg_mongo_data       historial completo
+      smartegg_grafana_data     dashboards y clave de admin
+      smartegg_mosquitto_data   mensajes retained
+      smartegg_mosquitto_log
+      smartegg_caddy_data
+      smartegg_caddy_config
+
+===============================================================================

@@ -1,0 +1,15 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.gitignore
+tools/
+src/static/*.pdf
+*.log
+.pytest_cache/
+.vscode/
+.idea/

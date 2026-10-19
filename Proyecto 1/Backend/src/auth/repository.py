@@ -1,8 +1,4 @@
-"""Acceso a la colección `usuarios`.
-
-Vive en src/auth/ y no en src/db/ a propósito: las credenciales son
-responsabilidad del módulo de autenticación y no de la capa de datos general.
-"""
+"""Acceso a la colección `usuarios`."""
 
 from datetime import datetime, timezone
 
@@ -22,10 +18,8 @@ ROL_OPERADOR_2 = "operador_2"
 ROLES_VALIDOS = {ROL_ADMIN, ROL_OPERADOR_1, ROL_OPERADOR_2}
 ROLES_OPERADOR = {ROL_OPERADOR_1, ROL_OPERADOR_2}
 
-
 def _ahora():
     return datetime.now(timezone.utc)
-
 
 class UsuariosRepo:
     @property
@@ -65,10 +59,7 @@ class UsuariosRepo:
             return []
 
     def crear(self, username, password, rol, nombre="", id_operador=None):
-        """Devuelve el usuario creado, o None si la base no responde.
-
-        Lanza DuplicateKeyError si el username ya existe.
-        """
+        """Devuelve el usuario creado, o None si la base no responde."""
         col = self.coleccion
         if col is None:
             return None
@@ -126,15 +117,10 @@ class UsuariosRepo:
             log.error("Error al eliminar el usuario: %s", exc)
             return False
 
-
 usuarios_repo = UsuariosRepo()
 
-
 def sembrar_usuarios_iniciales():
-    """Crea admin, operador1 y operador2 si no existen todavía.
-
-    Es idempotente: se puede llamar en cada arranque sin duplicar nada.
-    """
+    """Crea admin, operador1 y operador2 si no existen todavía."""
     if not config.AUTH_SEED_USUARIOS:
         log.info("AUTH_SEED_USUARIOS=false: no se siembran usuarios.")
         return

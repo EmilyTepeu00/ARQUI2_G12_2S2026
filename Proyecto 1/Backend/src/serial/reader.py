@@ -18,10 +18,8 @@ log = get_logger("serial")
 # Cuántas líneas se conservan para diagnóstico por API.
 BUFFER_DIAGNOSTICO = 30
 
-
 def _ahora():
     return datetime.now(timezone.utc)
-
 
 class SerialReader:
     def __init__(self):
@@ -421,6 +419,5 @@ class SerialReader:
             {"device": p.device, "descripcion": p.description}
             for p in list_ports.comports()
         ]
-
 
 serial_reader = SerialReader()

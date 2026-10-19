@@ -1,16 +1,13 @@
 #ifndef PUERTA_H
 #define PUERTA_H
 
-
-
 #include <Arduino.h>
 #include <Servo.h>
 
 // Puerta/RFID deshabilitada mientras no haya tarjetas MIFARE para probar.
-// Poner en 1 cuando lleguen: no hay nada mas que descomentar.
 #define PUERTA_HABILITADA 1
 
-// Pines. SPI hardware fijo: MISO=50, MOSI=51, SCK=52.
+// Pines.
 #define RFID_SS_PIN          53
 #define RFID_RST_PIN         49
 #define CERRADURA_SERVO_PIN  10
@@ -19,8 +16,7 @@
 #define UID_LONGITUD_MAX     10
 
 // Operadores autorizados a abrir y cerrar la incubadora.
-// Las tarjetas se registran en la tabla OPERADORES de puerta.cpp.
-#define NUM_OPERADORES       2
+#define NUM_OPERADORES       3
 
 struct OperadorAutorizado {
     const char *id;                    // "OP1" | "OP2", viaja en el JSON serial
@@ -28,14 +24,23 @@ struct OperadorAutorizado {
     byte        uidLongitud;           // bytes validos de uid[]; 0 = sin registrar
 };
 
-// Tiempo minimo entre dos lecturas aceptadas de la misma tarjeta. Evita que al
-// dejar la tarjeta apoyada en el lector la cerradura se abra y cierre en bucle.
+// Tiempo minimo entre dos lecturas aceptadas de la misma tarjeta.
 #define PUERTA_COOLDOWN_MS   2000UL
 
 extern const int CERRADURA_ANGULO_BLOQUEADA;
 extern const int CERRADURA_ANGULO_DESBLOQUEADA;
 
+enum ResultadoApp : uint8_t {
+    APP_OK,               // la accion se ejecuto
+    APP_ERR_OPERADOR,     // el id no esta en la tabla OPERADORES
+    APP_ERR_ESTADO        // la puerta ya estaba abierta (o ya cerrada)
+};
+
 void puertaInit();
 void puertaActualizar();
+
+// Apertura/cierre pedido desde la app.
+ResultadoApp puertaAccionApp(bool abrir, const char *idOperador);
+bool puertaEstaDestrabada();
 
 #endif

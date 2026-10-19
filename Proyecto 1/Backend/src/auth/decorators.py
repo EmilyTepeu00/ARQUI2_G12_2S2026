@@ -8,7 +8,6 @@ from src.auth.repository import ROL_ADMIN, ROLES_OPERADOR, usuarios_repo
 from src.auth.security import TokenInvalido, decodificar_token, extraer_token
 from src.config import config
 
-
 def _sin_token():
     return (
         jsonify(
@@ -20,12 +19,8 @@ def _sin_token():
         401,
     )
 
-
 def autenticar_peticion():
-    """Valida el token y deja el usuario en flask.g.
-
-    Devuelve None si todo bien, o una respuesta de error lista para retornar.
-    """
+    """Valida el token y deja el usuario en flask.g."""
     if not config.AUTH_ENABLED:
         g.usuario = {
             "username": "auth-desactivada",
@@ -60,7 +55,6 @@ def autenticar_peticion():
 
     return None
 
-
 def requiere_auth(fn):
     """Exige un token válido."""
 
@@ -72,7 +66,6 @@ def requiere_auth(fn):
         return fn(*args, **kwargs)
 
     return wrapper
-
 
 def requiere_rol(*roles):
     """Exige un token válido y que el rol esté entre los indicados."""
@@ -100,22 +93,17 @@ def requiere_rol(*roles):
 
     return decorador
 
-
 def requiere_admin(fn):
     return requiere_rol(ROL_ADMIN)(fn)
-
 
 def usuario_actual() -> dict:
     return getattr(g, "usuario", None) or {}
 
-
 def es_admin() -> bool:
     return usuario_actual().get("rol") == ROL_ADMIN
 
-
 def id_operador_actual():
     return usuario_actual().get("id_operador")
-
 
 def puede_ver_operador(id_operador: str) -> bool:
     """El administrador ve a cualquiera; un operador solo se ve a sí mismo."""
@@ -126,13 +114,8 @@ def puede_ver_operador(id_operador: str) -> bool:
     propio = id_operador_actual()
     return bool(propio) and str(id_operador) == str(propio)
 
-
 def resolver_id_operador(solicitado=None):
-    """Decide sobre qué operador se consulta.
-
-    - Administrador: el que pida (o None = todos).
-    - Operador: siempre el suyo, se ignora lo que pida.
-    """
+    """Decide sobre qué operador se consulta."""
     if es_admin():
         return solicitado
     return id_operador_actual()

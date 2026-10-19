@@ -8,7 +8,6 @@ _FECHA = "%Y-%m-%d %H:%M:%S"
 
 _configurado = False
 
-
 def _configurar_root():
     global _configurado
     if _configurado:
@@ -22,7 +21,6 @@ def _configurar_root():
     root.addHandler(handler)
     root.propagate = False
     _configurado = True
-
 
 def get_logger(nombre: str) -> logging.Logger:
     """Devuelve un logger hijo de `smartegg`"""

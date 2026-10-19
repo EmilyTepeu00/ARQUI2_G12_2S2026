@@ -9,10 +9,9 @@ const VELOCIDAD_GIRO = 1.7;
 const ESCALA_MODELO = 35;
 const POSICION_MODELO = [0,1,0];
 
-
 export function ModeloHuevera({ temperatura, espaciosLibres, rotacionActiva }) {
     const meshRef = useRef();
-    const ladoRef = useRef(1);      //1 = +45°, -1 = -45°
+    const ladoRef = useRef(1);      // 1 = +45°, -1 = -45°
     const rotacionAnteriorRef = useRef(false);
     const { scene } = useGLTF("/models/huevera.glb");
 
@@ -31,7 +30,7 @@ export function ModeloHuevera({ temperatura, espaciosLibres, rotacionActiva }) {
                 child.material.roughness = 0.6;
                 child.userData._materialClonado = true;
             }
-            child.material.color.set("#2e2e2e");
+            child.material.color.set("#8f9bc4");
         }
         if (child.isMesh) {
             child.geometry.computeVertexNormals();

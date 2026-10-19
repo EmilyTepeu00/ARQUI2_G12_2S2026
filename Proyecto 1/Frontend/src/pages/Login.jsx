@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Egg, LogIn, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
+import logoIcono from "../assets/logo-icono.png";
 
 export function Login() {
   const { login } = useAuth();
@@ -36,47 +37,40 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/20">
-            <Egg size={28} className="text-slate-950" strokeWidth={2.5} />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-50">SmartEgg</h1>
-            <p className="text-sm text-slate-500">Plataforma IoT de incubación</p>
-          </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+      {/* Halos de luz detrás del vidrio. */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-[85%] -translate-y-[70%] rounded-full bg-accent/40 blur-[110px]" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[360px] w-[360px] -translate-x-[5%] -translate-y-[5%] rounded-full bg-[#8b5cf6]/30 blur-[120px]" />
+
+      <form onSubmit={handleSubmit} className="glass relative w-full max-w-md space-y-5 rounded-[2rem] !bg-surface/40 p-8 sm:p-10">
+        <div className="flex items-center gap-2.5">
+          <img src={logoIcono} alt="" className="h-9 w-9 object-contain" />
+          <span className="text-lg font-bold tracking-tight">SmartEgg</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 shadow-lg shadow-black/20 backdrop-blur-sm">
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-slate-100">Iniciar sesión</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Ingrese con su usuario de administrador u operador
-            </p>
-          </div>
+        <div className="pb-2 pt-4">
+          <h1 className="text-gradient text-3xl font-semibold tracking-tight">Bienvenido de nuevo</h1>
+          <p className="mt-2 text-sm text-ink-2">Ingrese con su usuario de administrador u operador.</p>
+        </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-400">Usuario</span>
-            <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} className="input" placeholder="admin" autoComplete="username" />
-          </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="label">Usuario</span>
+          <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} className="input" placeholder="admin" autoComplete="username" />
+        </label>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-400">Contraseña</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="••••••••" autoComplete="current-password" />
-          </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="label">Contraseña</span>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="••••••••" autoComplete="current-password" />
+        </label>
 
-          {error && (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</p>
-          )}
+        {error && <p className="rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
 
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? (<><Loader2 size={16} className="animate-spin" /> Ingresando...</>) : (<><LogIn size={16} /> Ingresar</>)}
-          </Button>
-        </form>
+        <Button type="submit" disabled={loading} className="w-full py-3">
+          {loading ? (<><Loader2 size={16} className="animate-spin" /> Ingresando...</>) : "Ingresar"}
+        </Button>
 
-        <p className="mt-6 text-center text-xs text-slate-600">Grupo 12</p>
-      </div>
+        <p className="pt-2 text-center text-xs text-muted">Incubadora inteligente · AYC2 Grupo 12</p>
+      </form>
     </div>
   );
 }

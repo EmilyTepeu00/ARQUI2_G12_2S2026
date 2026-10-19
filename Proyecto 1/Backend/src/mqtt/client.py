@@ -10,16 +10,13 @@ from src.mqtt import topics
 
 log = get_logger("mqtt")
 
-
 def _ahora_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _json_safe(valor):
     if isinstance(valor, datetime):
         return valor.isoformat()
     return str(valor)
-
 
 class MqttPublisher:
     def __init__(self):
@@ -39,7 +36,7 @@ class MqttPublisher:
 
     # Ciclo de vida
     def init(self):
-        """Arranca el cliente. Llamarla dos veces no duplica hilos."""
+        """Arranca el cliente."""
         if self._iniciado:
             log.debug("El cliente MQTT ya estaba iniciado.")
             return
@@ -245,6 +242,5 @@ class MqttPublisher:
             "estadisticas": stats,
             "topics": topics.documentar(self._node_id),
         }
-
 
 mqtt_publisher = MqttPublisher()

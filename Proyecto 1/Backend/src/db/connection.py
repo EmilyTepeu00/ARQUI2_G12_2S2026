@@ -1,11 +1,4 @@
-"""
-Conexion a MongoDB: cliente, colecciones, indices y modo degradado.
-
-Esta clase solo se ocupa de *estar conectada*. Las consultas del dominio viven
-en repository.py. La separacion importa porque el modo degradado (arrancar sin
-base y reconectar en segundo plano) es la parte delicada, y conviene tenerla
-aislada de la logica de negocio.
-"""
+"""Conexion a MongoDB: cliente, colecciones, indices y modo degradado."""
 
 import sys
 import threading
@@ -19,12 +12,7 @@ from src.logger import get_logger
 
 log = get_logger("db")
 
-# Indices que se crean al conectar. Se declaran aca, en un solo lugar, para que
-# se vea de un vistazo por que campos se puede filtrar barato.
-#
-# Todos los historicos se ordenan por fecha descendente porque la consulta que
-# mas corre es "dame lo mas reciente"; el indice descendente evita que Mongo
-# tenga que ordenar en memoria.
+# Indices que se crean al conectar.
 INDICES = {
     "lecturas": [
         ([("timestamp", DESCENDING)], {}),
@@ -51,7 +39,6 @@ INDICES = {
         ([("username", ASCENDING)], {"unique": True}),
     ],
 }
-
 
 class ConexionMongo:
     """Mantiene viva la conexion y expone las colecciones como atributos."""
@@ -82,12 +69,11 @@ class ConexionMongo:
             )
             self._lanzar_reintento()
 
-    # -- Conexion ------------------------------------------------------------
+    # Conexion
     def _conectar(self) -> bool:
         try:
             client = MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=3000)
-            # MongoClient no conecta al construirse: es perezoso. El ping es lo
-            # que realmente comprueba que el servidor responde.
+            # MongoClient no conecta al construirse: es perezoso.
             client.admin.command("ping")
         except PyMongoError as exc:
             log.error("No se pudo conectar a MongoDB: %s", exc)
@@ -109,15 +95,14 @@ class ConexionMongo:
         return True
 
     def _crear_indices(self):
-        """Crea los indices declarados. Es idempotente: si ya existen, no hace nada."""
+        """Crea los indices declarados."""
         for nombre, definiciones in INDICES.items():
             coleccion = self.db[nombre]
             for llaves, opciones in definiciones:
                 try:
                     coleccion.create_index(llaves, **opciones)
                 except PyMongoError as exc:
-                    # Un indice unico falla si ya hay duplicados. No es motivo
-                    # para tumbar el arranque: se avisa y se sigue.
+                    # Un indice unico falla si ya hay duplicados.
                     log.warning(
                         "No se pudo crear el índice %s sobre '%s': %s",
                         llaves,
@@ -141,7 +126,7 @@ class ConexionMongo:
 
         threading.Thread(target=_loop, name="MongoReconnect", daemon=True).start()
 
-    # -- Estado --------------------------------------------------------------
+    # Estado
     @property
     def disponible(self) -> bool:
         return self._disponible

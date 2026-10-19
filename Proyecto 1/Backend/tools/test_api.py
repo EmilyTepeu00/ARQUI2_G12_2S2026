@@ -1,11 +1,4 @@
-"""Pruebas de la API: rutas historicas, telemetria publica y guardia de auth.
-
-Levanta la app con su test_client contra un MongoDB real, en una base aparte
-(smartegg_test_api) que borra al terminar.
-
-    docker compose up -d mongo          # en Proyecto_1/infra
-    python tools/test_api.py            # en Proyecto_1/Backend
-"""
+"""Pruebas de la API: rutas historicas, telemetria publica y guardia de auth."""
 
 import os
 import sys
@@ -14,9 +7,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import os, sys, json, random
 from datetime import datetime, timedelta, timezone
-# La URI se hereda del entorno si ya viene definida, para que el mismo archivo
-# corra en los dos lados: en el anfitrion apunta a localhost, y dentro del
-# contenedor del backend la variable ya trae mongodb://mongo:27017.
 os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
 os.environ.update(MONGO_DB_NAME="smartegg_test_api",
                   MONGO_REQUIRED="false", SERIAL_ENABLED="false", MQTT_ENABLED="false",

@@ -8,7 +8,6 @@ from src.reports import generar_reporte_pdf
 
 reports_bp = Blueprint("reports", __name__)
 
-
 def _parsear_fecha(valor):
     if not valor:
         return None
@@ -18,13 +17,11 @@ def _parsear_fecha(valor):
         return None
     return fecha if fecha.tzinfo else fecha.replace(tzinfo=timezone.utc)
 
-
 def _bool_param(nombre, defecto=False):
     valor = request.args.get(nombre)
     if valor is None:
         return defecto
     return valor.strip().lower() in ("1", "true", "yes", "on", "si", "sí")
-
 
 def _enviar(pdf_bytes, prefijo="smartegg_reporte"):
     nombre = f"{prefijo}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.pdf"
@@ -34,7 +31,6 @@ def _enviar(pdf_bytes, prefijo="smartegg_reporte"):
         as_attachment=True,
         download_name=nombre,
     )
-
 
 @reports_bp.get("/pdf")
 def descargar_reporte_pdf():
@@ -50,7 +46,6 @@ def descargar_reporte_pdf():
         incluir_detalle_lecturas=detalle,
     )
     return _enviar(pdf)
-
 
 @reports_bp.get("/pdf/operador/<id_operador>")
 def descargar_reporte_operador(id_operador):

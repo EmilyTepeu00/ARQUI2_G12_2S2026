@@ -1,10 +1,4 @@
-"""Autenticacion, roles y perfiles.
-
-Uso desde el bootstrap:
-
-    from src import auth
-    auth.init(app)
-"""
+"""Autenticacion, roles y perfiles."""
 
 from src.auth import decorators, security
 from src.auth.guard import proteger_app
@@ -29,7 +23,6 @@ __all__ = [
     "ROL_OPERADOR_2",
     "init",
 ]
-
 
 def init(app):
     """Registra los blueprints, el guardia global y siembra los usuarios."""

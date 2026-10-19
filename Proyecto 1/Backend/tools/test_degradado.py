@@ -1,11 +1,4 @@
-"""Comprueba que el backend funcione SIN base de datos.
-
-Apunta a un puerto muerto a proposito. Verifica que la app arranque igual, que
-cada metodo devuelva su valor neutro en vez de lanzar excepcion, y que la API
-siga respondiendo. No necesita Mongo.
-
-    python tools/test_degradado.py      # en Proyecto_1/Backend
-"""
+"""Comprueba que el backend funcione SIN base de datos."""
 
 import os
 import sys

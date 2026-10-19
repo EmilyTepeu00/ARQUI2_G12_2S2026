@@ -17,6 +17,10 @@ static bool  alarmaActiva    = false;
 
 static int anguloActualServo;
 static int anguloObjetivoServo;
+static unsigned long ultimoPasoServoMs = 0;
+
+// El giro dura ~1.4 s y el serial reporta cada 1 s: con "se mueve ahora" se perderia.
+static const unsigned long ROTACION_VISIBLE_MS = 2000UL;
 
 static const unsigned long DEBOUNCE_BOTON_MS = 200;
 
@@ -134,6 +138,11 @@ void servoPasoSuave() {
   }
 
   servoBandeja.write(anguloActualServo);
+  ultimoPasoServoMs = millis();
+}
+
+bool servoRotando() {
+  return millis() - ultimoPasoServoMs < ROTACION_VISIBLE_MS;
 }
 
 int procesarFinesDeCarrera() {
@@ -170,7 +179,7 @@ bool botonPresionado() {
   if (nivel != ultimoNivel && (ahora - ultimoCambioMs) > DEBOUNCE_BOTON_MS) {
     ultimoNivel    = nivel;
     ultimoCambioMs = ahora;
-    return (nivel == LOW);   
+    return (nivel == LOW);
   }
 
   return false;

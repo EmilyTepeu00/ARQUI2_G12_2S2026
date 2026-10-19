@@ -9,7 +9,7 @@ info:
     Este documento define la interfaz que consume el frontend. Es la referencia
     unica de rutas, cuerpos, respuestas y codigos de estado.
 
-    ## Separacion REST / MQTT
+    # # Separacion REST / MQTT
 
     | Va por REST (este documento) | Va por MQTT (broker) |
     |---|---|
@@ -22,7 +22,7 @@ info:
     `smartegg/{node_id}/alarmas/critica` por WebSocket (puerto 9001).
     El catalogo de topics vive en `GET /api/diagnostico/mqtt/topics`.
 
-    ## Autenticacion
+    # # Autenticacion
 
     1. `POST /api/auth/login` devuelve un JWT.
     2. Enviarlo en cada peticion protegida: `Authorization: Bearer <token>`.
@@ -148,7 +148,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Mensaje" }
 
-  # ----------------------------------------------------------------- Auth ---
+  # Auth
   /api/auth/login:
     post:
       tags: [Autenticacion]
@@ -297,7 +297,7 @@ paths:
         "404": { $ref: "#/components/responses/NoEncontrado" }
         "409": { $ref: "#/components/responses/Conflicto" }
 
-  # --------------------------------------------------------------- Perfil ---
+  # Perfil
   /api/perfil:
     get:
       tags: [Perfil]
@@ -370,7 +370,7 @@ paths:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/NoAutenticado" }
 
-  # ------------------------------------------------------------- Sensores ---
+  # Sensores
   /api/sensores/actual:
     get:
       tags: [Sensores]
@@ -499,7 +499,7 @@ paths:
             text/event-stream:
               schema: { type: string }
 
-  # ---------------------------------------------------------------- Lotes ---
+  # Lotes
   /api/lotes:
     get:
       tags: [Lotes]
@@ -584,7 +584,7 @@ paths:
         "401": { $ref: "#/components/responses/NoAutenticado" }
         "404": { $ref: "#/components/responses/NoEncontrado" }
 
-  # ----------------------------------------------------------- Operadores ---
+  # Operadores
   /api/operadores:
     get:
       tags: [Operadores]
@@ -673,7 +673,7 @@ paths:
         "403": { $ref: "#/components/responses/SinPermisos" }
         "404": { $ref: "#/components/responses/NoEncontrado" }
 
-  # --------------------------------------------------------------- Puerta ---
+  # Puerta
   /api/puerta/eventos:
     get:
       tags: [Puerta]
@@ -739,7 +739,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ResumenPuerta" }
 
-  # ------------------------------------------------------------- Reportes ---
+  # Reportes
   /api/reportes/pdf:
     get:
       tags: [Reportes]
@@ -788,7 +788,7 @@ paths:
         "403": { $ref: "#/components/responses/SinPermisos" }
         "404": { $ref: "#/components/responses/NoEncontrado" }
 
-  # ---------------------------------------------------------- Diagnostico ---
+  # Diagnostico
   /api/diagnostico:
     get:
       tags: [Diagnostico]
@@ -997,7 +997,6 @@ paths:
               schema: { $ref: "#/components/schemas/EstadisticasLote" }
         "404":
           description: Lote no encontrado o sin datos
-
 
 components:
 
@@ -1236,7 +1235,7 @@ components:
           default: operador_1
         metodo_acceso:
           type: string
-          enum: [rfid, huella, llave, manual]
+          enum: [rfid, bluetooth, huella, llave, manual]
           default: rfid
         activo: { type: boolean, default: true }
 
@@ -1254,7 +1253,7 @@ components:
           enum: [operador_1, operador_2, administrador]
         metodo_acceso:
           type: string
-          enum: [rfid, huella, llave, manual]
+          enum: [rfid, bluetooth, huella, llave, manual]
         activo: { type: boolean }
 
     Operador:
@@ -1275,7 +1274,7 @@ components:
         id_operador: { type: string, example: OP1 }
         metodo:
           type: string
-          enum: [rfid, huella, llave, manual]
+          enum: [rfid, bluetooth, huella, llave, manual]
           default: manual
         huevos_delta:
           type: integer
@@ -1293,7 +1292,7 @@ components:
         id_operador: { type: string, example: OP1 }
         metodo:
           type: string
-          enum: [rfid, huella, llave, manual]
+          enum: [rfid, bluetooth, huella, llave, manual]
         huevos_delta: { type: integer, example: -2 }
         huevos_ingresados: { type: integer, minimum: 0 }
         huevos_retirados: { type: integer, minimum: 0 }

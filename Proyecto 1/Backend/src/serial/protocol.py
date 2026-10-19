@@ -4,8 +4,6 @@ import re
 TIPO_LECTURA = "lectura"
 TIPO_PUERTA = "puerta"
 # Tarjeta leída por el RFID que no corresponde a ningún operador registrado.
-# Es un intento de acceso fallido, no una apertura: se registra aparte para que
-# quede rastro de quién intentó entrar sin autorización.
 TIPO_ACCESO_DENEGADO = "acceso_denegado"
 
 # Rangos de sentido
@@ -13,10 +11,8 @@ TEMP_RANGO_VALIDO = (-40.0, 100.0)
 HUM_RANGO_VALIDO = (0.0, 100.0)
 ESPACIOS_MAXIMOS = 6
 
-
 class ErrorProtocolo(ValueError):
     """La línea llegó, pero no cumple"""
-
 
 def _a_bool(valor, defecto=False) -> bool:
     if valor is None:
@@ -32,7 +28,6 @@ def _a_bool(valor, defecto=False) -> bool:
         return False
     return defecto
 
-
 def _a_float(valor, campo: str) -> float:
     try:
         numero = float(valor)
@@ -42,7 +37,6 @@ def _a_float(valor, campo: str) -> float:
         raise ErrorProtocolo(f"'{campo}' es NaN")
     return numero
 
-
 def _a_int(valor, campo: str, defecto: int = 0) -> int:
     if valor is None:
         return defecto
@@ -50,7 +44,6 @@ def _a_int(valor, campo: str, defecto: int = 0) -> int:
         return int(float(valor))
     except (TypeError, ValueError):
         raise ErrorProtocolo(f"'{campo}' no es entero: {valor!r}")
-
 
 def _validar_lectura(datos: dict) -> dict:
     temp = datos["temperatura"]
@@ -68,7 +61,6 @@ def _validar_lectura(datos: dict) -> dict:
         )
 
     return datos
-
 
 def _parsear_json(linea: str):
     try:
@@ -123,7 +115,6 @@ def _parsear_json(linea: str):
     }
     return {"tipo": TIPO_LECTURA, "datos": _validar_lectura(datos)}
 
-
 def derivar_actuadores(datos: dict, temp_min: float, temp_max: float) -> dict:
     """Infiere calefacción/ventilación cuando el firmware no las reporta."""
     if not datos.get("sistema_encendido"):
@@ -134,7 +125,6 @@ def derivar_actuadores(datos: dict, temp_min: float, temp_max: float) -> dict:
     datos["calefaccion"] = temp < temp_min
     datos["ventilacion"] = temp > temp_max
     return datos
-
 
 def parsear_linea(linea: str):
     """Convierte una línea del serial en un mensaje normalizado."""

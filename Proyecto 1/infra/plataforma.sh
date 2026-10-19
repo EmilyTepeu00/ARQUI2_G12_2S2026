@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
 # Maneja la plataforma SmartEgg sin tener que recordar banderas de Docker.
-#
-#   ./plataforma.sh arriba      levanta todo en local
-#   ./plataforma.sh verificar   comprueba que responda
-#   ./plataforma.sh publico     abre el tunel de Cloudflare y muestra la URL
-#   ./plataforma.sh url         vuelve a mostrar la URL del tunel
-#   ./plataforma.sh estado      que esta corriendo
-#   ./plataforma.sh abajo       apaga TODO de forma segura
-#
-# El motivo de este script: el tunel vive en el perfil `publico`, y un
-# `docker compose down` sin ese perfil borra la red pero NO borra el
-# contenedor del tunel. El contenedor queda apuntando a una red que ya no
-# existe y al levantarlo otra vez falla con "network not found".
-# Aca siempre se usa el perfil, asi que eso no puede pasar.
 
 set -u
 cd "$(dirname "$0")" || exit 1
@@ -25,13 +12,10 @@ case "${1:-}" in
 
   arriba)
     # --build reconstruye las imagenes si cambio el codigo.
-    # -d las deja en segundo plano (detached).
     docker compose up -d --build
     echo
 
     # `up -d` vuelve apenas los contenedores ARRANCAN, no cuando estan listos.
-    # Sin esta espera, un "verificar" inmediato da 502 con todo bien: el proxy
-    # ya responde pero gunicorn todavia no. Se espera al healthcheck real.
     echo -n "Esperando a que los servicios queden listos"
     for _ in $(seq 1 60); do
       pendientes=0
@@ -58,8 +42,6 @@ case "${1:-}" in
     ;;
 
   publico)
-    # Se borra primero cualquier contenedor viejo del tunel, que es lo que
-    # arrastra la red muerta. `|| true` para que no falle si no existe.
     docker rm -f smartegg-tunel >/dev/null 2>&1 || true
 
     docker compose "${PERFIL[@]}" up -d
@@ -104,7 +86,6 @@ case "${1:-}" in
 
   abajo)
     # Con el perfil: baja el tunel Y borra su contenedor, en el orden correcto.
-    # Sin -v, asi que los volumenes (Mongo, Grafana, Mosquitto) se conservan.
     docker compose "${PERFIL[@]}" down
     echo
     echo "Volumenes conservados (el historial NO se borro):"

@@ -7,7 +7,6 @@ from src.serial.reader import serial_reader
 
 diagnostico_bp = Blueprint("diagnostico", __name__)
 
-
 @diagnostico_bp.get("")
 def resumen():
     return (
@@ -24,7 +23,6 @@ def resumen():
         200,
     )
 
-
 @diagnostico_bp.get("/serial")
 def estado_serial():
     return (
@@ -39,7 +37,6 @@ def estado_serial():
         200,
     )
 
-
 @diagnostico_bp.get("/serial/lineas")
 def lineas_crudas():
     try:
@@ -48,11 +45,9 @@ def lineas_crudas():
         limit = 20
     return jsonify(serial_reader.get_lineas_crudas(max(1, min(limit, 30)))), 200
 
-
 @diagnostico_bp.get("/mqtt")
 def estado_mqtt():
     return jsonify(mqtt_publisher.estado()), 200
-
 
 @diagnostico_bp.get("/mqtt/topics")
 def catalogo_topics():

@@ -15,7 +15,6 @@ from src.serial import stop as serial_stop
 
 log = get_logger("app")
 
-
 def create_app():
     app = Flask(__name__)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -96,7 +95,6 @@ def create_app():
     atexit.register(_apagar)
     log.info("Backend SmartEgg listo (nodo %s).", config.NODE_ID)
     return app
-
 
 def _apagar():
     log.info("Apagando componentes de fondo...")

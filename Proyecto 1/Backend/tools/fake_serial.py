@@ -8,8 +8,7 @@ import time
 
 ESPACIOS_TOTALES = 6
 OPERADORES = ["OP1", "OP2"]
-METODOS = ["rfid", "huella", "llave"]
-
+METODOS = ["rfid", "bluetooth"]
 
 def construir_lectura(t: float, escenario: str) -> dict:
     """Genera una lectura verosímil: onda suave + ruido."""
@@ -43,16 +42,11 @@ def construir_lectura(t: float, escenario: str) -> dict:
         "puerta_abierta": 0,
     }
 
-
 construir_lectura.espacios = 2
 
-
 def formatear(lectura: dict) -> str:
-    # El firmware emite JSON y el parser solo entiende JSON. El formato de texto
-    # plano de la Práctica 1 se quitó: generaba líneas que el backend descarta,
-    # y eso hacía perder tiempo buscando el fallo en el lado equivocado.
+    # El firmware emite JSON y el parser solo entiende JSON.
     return json.dumps(lectura, ensure_ascii=False)
-
 
 def construir_evento_puerta(abierta: bool) -> dict:
     """Alterna abrir/cerrar; al cerrar mueve huevos y ajusta los espacios."""
@@ -80,10 +74,8 @@ def construir_evento_puerta(abierta: bool) -> dict:
         "autorizado": 1,
     }
 
-
 construir_evento_puerta.operador = "OP1"
 construir_evento_puerta.metodo = "rfid"
-
 
 def abrir_salida(args):
     """Devuelve (escribir, cerrar, descripcion)."""
@@ -108,21 +100,13 @@ def abrir_salida(args):
     maestro, esclavo = pty.openpty()
     nombre = os.ttyname(esclavo)
 
-    # El numero del pty (/dev/pts/0, /dev/pts/1, ...) NO es estable: depende de
-    # que otra cosa haya pedido un pty antes, y cada sesion `docker exec` con
-    # terminal se lleva uno. Si el backend tiene SERIAL_PORT=/dev/pts/0 fijo,
-    # termina escuchando un pty que no es el nuestro y no recibe nada.
-    #
-    # Por eso se crea un enlace con nombre fijo: el backend apunta siempre ahi
-    # y no importa que numero le haya tocado al pty.
     enlace = args.enlace
     if enlace:
         try:
             if os.path.islink(enlace) or os.path.exists(enlace):
                 os.unlink(enlace)
             os.symlink(nombre, enlace)
-            # El backend corre como otro usuario dentro del contenedor y tiene
-            # que poder leer el pty.
+            # El backend corre como otro usuario dentro del contenedor y tiene que poder leer el pty.
             os.chmod(nombre, 0o666)
         except OSError as exc:
             print(f"No se pudo crear el enlace {enlace}: {exc}", file=sys.stderr)
@@ -142,7 +126,6 @@ def abrir_salida(args):
 
     descripcion = f"{enlace} -> {nombre}" if enlace else nombre
     return escribir, cerrar, descripcion
-
 
 def main():
     parser = argparse.ArgumentParser(description="Simulador serial del nodo SmartEgg")
@@ -200,7 +183,6 @@ def main():
         print("\nSimulador detenido.")
     finally:
         cerrar()
-
 
 if __name__ == "__main__":
     main()

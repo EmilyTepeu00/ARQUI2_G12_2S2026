@@ -1,37 +1,36 @@
-import { Menu, LogOut, User } from "lucide-react";
-import { ConnectionPill } from "../ui/ConnectionPill";
+import clsx from "clsx";
+import { LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const ROL_LABEL = { administrador: "Administrador", operador_1: "Operador 1", operador_2: "Operador 2" };
 
-export function Topbar({ onMenuClick, estado }) {
+export function Topbar({ estado }) {
   const conectado = Boolean(estado?.serial_conectado);
   const { usuario, logout } = useAuth();
+  const nombre = usuario?.nombre || usuario?.username || "";
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/80 px-4 py-3 backdrop-blur-md sm:px-6">
-      <div className="flex items-center gap-3">
-        <button onClick={onMenuClick} className="rounded-lg p-2 text-slate-400 hover:bg-slate-900 hover:text-slate-200 lg:hidden">
-          <Menu size={20} />
-        </button>
-        <div>
-          <h1 className="text-base font-semibold text-slate-100 sm:text-lg">Monitoreo en tiempo real</h1>
-          <p className="hidden text-xs text-slate-500 sm:block">Datos transmitidos por el Arduino vía puerto serial</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 sm:gap-3">
-        <ConnectionPill connected={conectado} label={conectado ? `Arduino conectado${estado?.puerto ? ` · ${estado.puerto}` : ""}` : "Arduino desconectado"} />
+    <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:pt-6">
+      <div className="ml-auto flex items-center gap-2">
+        <span
+          className={clsx(
+            "flex items-center gap-2 rounded-full border border-line bg-white/[0.04] px-3 py-1.5 text-xs",
+            conectado ? "text-ink-2" : "text-bad"
+          )}
+        >
+          <span className={clsx("h-2 w-2 rounded-full", conectado ? "animate-blink bg-ok shadow-[0_0_8px] shadow-ok" : "bg-bad")} />
+          {conectado ? `Arduino${estado?.puerto ? ` · ${estado.puerto}` : ""}` : "Arduino desconectado"}
+        </span>
         {usuario && (
-          <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 py-1 pl-1 pr-2 sm:pr-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-300">
-              <User size={14} />
+          <div className="flex items-center gap-2.5 rounded-full border border-line bg-white/[0.04] py-1 pl-1 pr-1 sm:pr-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-xs font-semibold text-white">
+              {nombre.slice(0, 1).toUpperCase()}
             </span>
             <div className="hidden leading-tight sm:block">
-              <p className="text-xs font-medium text-slate-200">{usuario.nombre || usuario.username}</p>
-              <p className="text-[11px] text-slate-500">{ROL_LABEL[usuario.rol] || usuario.rol}</p>
+              <p className="text-xs font-medium text-ink">{nombre}</p>
+              <p className="text-[11px] text-muted">{ROL_LABEL[usuario.rol] || usuario.rol}</p>
             </div>
-            <button onClick={logout} title="Cerrar sesión" className="ml-1 rounded-full p-1.5 text-slate-500 hover:bg-slate-800 hover:text-red-400">
+            <button onClick={logout} aria-label="Cerrar sesión" className="rounded-full p-1.5 text-muted hover:text-bad lg:hidden">
               <LogOut size={14} />
             </button>
           </div>

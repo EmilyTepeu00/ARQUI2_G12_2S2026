@@ -6,7 +6,6 @@ from src.api.puerta import puerta_bp
 from src.api.reports import reports_bp
 from src.api.sensors import sensors_bp
 
-
 def register_routes(app):
     app.register_blueprint(sensors_bp, url_prefix="/api/sensores")
     app.register_blueprint(lotes_bp, url_prefix="/api/lotes")

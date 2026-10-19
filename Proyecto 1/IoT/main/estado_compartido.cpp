@@ -62,7 +62,6 @@ bool estadoSistemaEncendido() {
 }
 
 // control de acceso a la puerta.
-// Reutiliza el mismo estadoMutex de arriba, no se crea ningun semaforo nuevo.
 
 void estadoSetPuertaAbierta(bool abierta) {
     xSemaphoreTake(estadoMutex, portMAX_DELAY);
@@ -85,9 +84,7 @@ void estadoSetOperadorActual(const char *idOperador) {
     xSemaphoreGive(estadoMutex);
 }
 
-// --- Cola FIFO de eventos de puerta ---------------------------------------
-// Se llama con el mutex ya tomado. Devuelve la ranura donde escribir el evento;
-// si la cola esta llena descarta el mas antiguo para no perder el mas reciente.
+// Cola FIFO de eventos de puerta
 static EventoPuertaPendiente *reservarRanura() {
     if (colaCantidad == EVENTOS_PUERTA_CAPACIDAD) {
         colaInicio = (colaInicio + 1) % EVENTOS_PUERTA_CAPACIDAD;

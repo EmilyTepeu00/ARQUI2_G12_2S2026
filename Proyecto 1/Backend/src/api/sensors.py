@@ -14,7 +14,6 @@ sensors_bp = Blueprint("sensors", __name__)
 # Cada cuanto mandar un latido en el stream SSE si el nodo no publica nada.
 HEARTBEAT_SEGUNDOS = 15
 
-
 def _parsear_fecha(valor):
     if not valor:
         return None
@@ -26,7 +25,6 @@ def _parsear_fecha(valor):
         fecha = fecha.replace(tzinfo=timezone.utc)
     return fecha
 
-
 @sensors_bp.get("/actual")
 def obtener_lectura_actual():
     lectura = serial_reader.get_ultima_lectura()
@@ -37,7 +35,6 @@ def obtener_lectura_actual():
     if isinstance(lectura.get("timestamp"), datetime):
         lectura["timestamp"] = lectura["timestamp"].isoformat()
     return jsonify(lectura), 200
-
 
 @sensors_bp.get("/historial")
 def obtener_historial():
@@ -52,7 +49,6 @@ def obtener_historial():
 
     lecturas = db.obtener_historial(limit=limit, desde=desde, hasta=hasta)
     return jsonify(serialize_list(lecturas)), 200
-
 
 @sensors_bp.get("/estadisticas")
 def obtener_estadisticas():
@@ -78,7 +74,6 @@ def obtener_estadisticas():
         ),
         200,
     )
-
 
 @sensors_bp.get("/estado")
 def obtener_estado_conexion():
@@ -108,7 +103,6 @@ def obtener_estado_conexion():
         200,
     )
 
-
 @sensors_bp.get("/alarmas")
 def obtener_alarmas():
     try:
@@ -119,16 +113,12 @@ def obtener_alarmas():
     alarmas = db.obtener_alarmas_recientes(limit=limit)
     return jsonify(serialize_list(alarmas)), 200
 
-
 @sensors_bp.get("/stream")
 def stream_lecturas():
     """Se conserva únicamente como respaldo de depuración del backend."""
 
     def event_generator():
-        # Un comentario SSE (linea que empieza con ":") de entrada. Sin esto, si
-        # todavia no hay ninguna lectura el cliente se queda sin recibir ni las
-        # cabeceras: el navegador nunca dispara onopen y parece que el endpoint
-        # esta colgado, cuando en realidad solo no hay datos que mandar.
+        # Un comentario SSE (linea que empieza con ":") de entrada.
         yield ": conectado\n\n"
 
         ultimo_enviado = None
@@ -143,15 +133,11 @@ def stream_lecturas():
                 yield f"data: {json.dumps(payload)}\n\n"
                 ultimo_latido = time.monotonic()
             elif time.monotonic() - ultimo_latido >= HEARTBEAT_SEGUNDOS:
-                # Latido periodico: mantiene viva la conexion cuando el nodo
-                # esta callado y permite detectar el corte del otro lado.
                 yield ": latido\n\n"
                 ultimo_latido = time.monotonic()
             time.sleep(1)
 
     respuesta = Response(event_generator(), mimetype="text/event-stream")
-    # Sin esto, un proxy intermedio puede acumular el cuerpo y el streaming
-    # deja de ser streaming.
     respuesta.headers["Cache-Control"] = "no-cache"
     respuesta.headers["X-Accel-Buffering"] = "no"
     return respuesta

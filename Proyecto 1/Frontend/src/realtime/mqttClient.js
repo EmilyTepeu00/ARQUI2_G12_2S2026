@@ -1,23 +1,10 @@
 import mqtt from "mqtt";
 
-/**
- * URL del broker por WebSocket.
- *
- * Por defecto se arma desde el origen de la pagina y apunta a /mqtt, que es la
- * ruta que el proxy (Caddy) reenvia al listener WebSocket de Mosquitto. Esto
- * resuelve dos cosas de golpe:
- *
- *   1. En una pagina https:// el esquema pasa solo a wss://. Un ws:// dentro de
- *      https lo bloquea el navegador por contenido mixto.
- *   2. La URL del tunel publico cambia cada vez que se levanta, y como esta se
- *      calcula en tiempo de ejecucion, no hay que recompilar el frontend.
- *
- * VITE_MQTT_WS_URL solo se define para apuntar a un broker en otro host.
- */
+// URL del broker por WebSocket.
 function urlPorDefecto() {
   if (typeof window === "undefined") return "ws://localhost:9001";
   const esquema = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${esquema}//${window.location.host}/mqtt`;
+  return `${esquema}// ${window.location.host}/mqtt`;
 }
 
 export const MQTT_WS_URL = import.meta.env.VITE_MQTT_WS_URL || urlPorDefecto();

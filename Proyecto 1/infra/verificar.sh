@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 # Verifica que la plataforma responda por una URL base.
-#
-#   ./verificar.sh                                  # local, por el proxy
-#   ./verificar.sh https://algo.trycloudflare.com   # a traves del tunel
-#
-# Solo necesita curl.
 
 BASE="${1:-http://localhost:8080}"
 BASE="${BASE%/}"
@@ -43,8 +38,6 @@ probar /api/historico/diario  200 "resumen diario"
 
 echo
 echo "== WebSocket de MQTT =="
-# --http1.1 es obligatorio: sobre HTTP/2 el upgrade de WebSocket usa otro
-# mecanismo (CONNECT extendido) y estas cabeceras dan 502 en el proxy.
 respuesta=$(curl -s -i --http1.1 --max-time 10 \
   -H "Connection: Upgrade" -H "Upgrade: websocket" \
   -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \

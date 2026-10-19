@@ -1,18 +1,6 @@
-"""
-Topicos usados:
-smartegg/{node_id}/sensores/lectura
-smartegg/{node_id}/sensores/temperatura
-smartegg/{node_id}/sensores/humedad
-smartegg/{node_id}/actuadores/estado
-smartegg/{node_id}/alarmas/critica
-smartegg/{node_id}/puerta/evento
-smartegg/{node_id}/status
-"""
-
 from dataclasses import dataclass
 
 from src.config import config
-
 
 @dataclass(frozen=True)
 class TopicSpec:
@@ -20,7 +8,6 @@ class TopicSpec:
     qos: int
     retained: bool
     descripcion: str
-
 
 SENSORES_LECTURA = "sensores_lectura"
 SENSORES_TEMPERATURA = "sensores_temperatura"
@@ -66,17 +53,14 @@ CATALOGO = {
     ),
 }
 
-
 def construir(clave: str, node_id: str = None) -> str:
     """Devuelve el topic completo para una clave lógica del catálogo."""
     spec = CATALOGO[clave]
     nodo = node_id or config.NODE_ID
     return f"{config.MQTT_TOPIC_PREFIX}/{nodo}/{spec.sufijo}"
 
-
 def spec(clave: str) -> TopicSpec:
     return CATALOGO[clave]
-
 
 def documentar(node_id: str = None) -> list:
     """Catálogo serializable, expuesto por la API para la documentación."""

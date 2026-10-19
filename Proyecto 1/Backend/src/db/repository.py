@@ -1,19 +1,4 @@
-"""
-Repositorio de datos de SmartEgg.
-
-Unico punto del backend que habla con MongoDB. Todo lo demas (API, lector
-serial, cliente MQTT, reportes) pasa por aca, asi que esta clase es el contrato
-de la capa de datos: mientras los metodos conserven su nombre y la forma de lo
-que devuelven, se puede cambiar el motor por debajo sin tocar nada mas.
-
-Reglas que cumplen todos los metodos:
-
-  * Sin base disponible NO lanzan excepcion. Devuelven el valor neutro que le
-    corresponda (None, [], 0 o el dict vacio), para que el backend siga
-    leyendo el serial y publicando por MQTT aunque Mongo este caido.
-  * Los historicos son append-only: nada de lo que entra se sobrescribe.
-  * Las fechas se guardan siempre en UTC.
-"""
+"""Repositorio de datos de SmartEgg."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -25,29 +10,23 @@ from src.logger import get_logger
 
 log = get_logger("db.repo")
 
-
 def _ahora() -> datetime:
     return datetime.now(timezone.utc)
-
 
 def _rango_dia(dia: datetime):
     inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0)
     fin = inicio + timedelta(days=1) - timedelta(microseconds=1)
     return inicio, fin
 
-
 def _con_tz(fecha):
-    """Mongo puede devolver fechas sin zona. Se asumen UTC."""
+    """Mongo puede devolver fechas sin zona."""
     if isinstance(fecha, datetime) and fecha.tzinfo is None:
         return fecha.replace(tzinfo=timezone.utc)
     return fecha
 
-
 class Database(ConexionMongo):
 
-    # =====================================================================
-    #  LECTURAS
-    # =====================================================================
+    # LECTURAS
     def guardar_lectura(self, lectura: dict):
         if not self._guard():
             return None
@@ -132,9 +111,7 @@ class Database(ConexionMongo):
         doc.pop("_id", None)
         return doc
 
-    # =====================================================================
-    #  LOTES
-    # =====================================================================
+    # LOTES
     def crear_lote(self, lote: dict):
         if not self._guard():
             return None
@@ -174,13 +151,7 @@ class Database(ConexionMongo):
         return self.lotes.count_documents({"estado": "incubando"})
 
     def estadisticas_por_lote(self, lote_id):
-        """Condiciones ambientales durante la incubación de un lote.
-
-        Las lecturas NO llevan lote_id: el Arduino no sabe que lote hay dentro,
-        solo mide la incubadora. Asi que el cruce se hace por tiempo, tomando la
-        ventana entre la fecha de ingreso del lote y su cierre (o ahora, si
-        sigue incubando).
-        """
+        """Condiciones ambientales durante la incubación de un lote."""
         if not self._guard():
             return None
         lote = self.obtener_lote(lote_id)
@@ -203,9 +174,7 @@ class Database(ConexionMongo):
         stats["dias_incubando"] = round((hasta - desde).total_seconds() / 86400, 2)
         return stats
 
-    # =====================================================================
-    #  ALARMAS
-    # =====================================================================
+    # ALARMAS
     def abrir_alarma(self, alarma: dict):
         """Registra el inicio de una condición crítica y devuelve el documento."""
         if not self._guard():
@@ -287,9 +256,7 @@ class Database(ConexionMongo):
             log.error("Error al obtener alarmas por rango: %s", exc)
             return []
 
-    # =====================================================================
-    #  OPERADORES
-    # =====================================================================
+    # OPERADORES
     def crear_operador(self, operador: dict):
         if not self._guard():
             return None
@@ -324,9 +291,7 @@ class Database(ConexionMongo):
             return None
         return self.operadores.delete_one({"id_operador": id_operador})
 
-    # =====================================================================
-    #  APERTURAS DE PUERTA
-    # =====================================================================
+    # APERTURAS DE PUERTA
     def registrar_apertura(self, evento: dict):
         if not self._guard():
             return None
@@ -429,17 +394,9 @@ class Database(ConexionMongo):
         }
         return resumen
 
-    # =====================================================================
-    #  CONSULTAS HISTORICAS  (dashboards y reportes)
-    # =====================================================================
+    # CONSULTAS HISTORICAS (dashboards y reportes)
     def serie_temporal(self, desde: datetime, hasta: datetime, intervalo_minutos: int = 5):
-        """Promedios de temperatura y humedad agrupados por intervalos de tiempo.
-
-        Graficar lectura por lectura no escala: en un dia hay miles de puntos y
-        el navegador se ahoga. Esto agrupa por bloques y devuelve un punto por
-        bloque, con el minimo y el maximo de cada uno para poder dibujar la
-        banda de variacion.
-        """
+        """Promedios de temperatura y humedad agrupados por intervalos de tiempo."""
         if not self._guard():
             return []
         ms = max(1, int(intervalo_minutos)) * 60 * 1000
@@ -596,19 +553,12 @@ class Database(ConexionMongo):
         ]
 
     def actividad_por_operador(self, desde: datetime, hasta: datetime):
-        """Ranking de operadores por actividad en la puerta.
-
-        Es resumen_puerta visto al reves: en lugar de los totales de la
-        incubadora, la lista por operador ya ordenada, que es lo que necesita la
-        tabla del dashboard.
-        """
+        """Ranking de operadores por actividad en la puerta."""
         resumen = self.resumen_puerta(desde, hasta)
         filas = resumen.get("por_operador", [])
         return sorted(filas, key=lambda f: f["veces_abierta"], reverse=True)
 
-    # =====================================================================
-    #  UTILIDADES INTERNAS
-    # =====================================================================
+    # UTILIDADES INTERNAS
     @staticmethod
     def _filtro_rango(campo: str, desde, hasta):
         filtro = {}
@@ -620,7 +570,6 @@ class Database(ConexionMongo):
         if rango:
             filtro[campo] = rango
         return filtro
-
 
 # Instancia unica que importa todo el backend.
 db = Database()

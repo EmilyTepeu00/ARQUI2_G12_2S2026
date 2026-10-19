@@ -101,7 +101,8 @@
 
   Grafana
       Contenedor ya configurado en el compose, con el plugin
-      grafana-mqtt-datasource 1.3.6 instalado y verificado.
+      grafana-mqtt-datasource 1.2.1 instalado y verificado (la 1.3.x rompe
+      la suscripcion: bug grafana/mqtt-datasource#361).
       Se entra por http://localhost:8080/grafana/  (usuario admin).
       OJO: localhost:3000 a secas da 404, porque Grafana va bajo subruta.
 

@@ -1,7 +1,5 @@
-import { Pencil, Trash2, Egg, User } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 
 const ESTADO_VARIANT = {
   incubando: "warning",
@@ -11,42 +9,35 @@ const ESTADO_VARIANT = {
 
 export function LoteCard({ lote, onEdit, onDelete }) {
   return (
-    <Card className="flex flex-col gap-3 p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{lote.codigo}</p>
-          <h3 className="text-base font-semibold text-slate-100">{lote.nombre_lote}</h3>
+    <Card className="flex flex-col">
+      <div className="flex flex-1 flex-col gap-4 p-5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-xs text-muted">{lote.codigo}</span>
+          <Badge variant={ESTADO_VARIANT[lote.estado] || "neutral"}>{lote.estado}</Badge>
         </div>
-        <Badge variant={ESTADO_VARIANT[lote.estado] || "neutral"} dot>
-          {lote.estado}
-        </Badge>
-      </div>
 
-      <div className="flex flex-wrap gap-4 text-sm text-slate-400">
-        <span className="inline-flex items-center gap-1.5">
-          <Egg size={14} className="text-amber-400" /> {lote.cantidad_huevos} huevos
-        </span>
-        {lote.raza && <span className="text-slate-500">Raza: {lote.raza}</span>}
-        {lote.responsable && (
-          <span className="inline-flex items-center gap-1.5">
-            <User size={14} /> {lote.responsable}
-          </span>
-        )}
-      </div>
+        <div>
+          <h3 className="text-lg font-semibold leading-tight text-ink">{lote.nombre_lote}</h3>
+          <p className="mt-1 text-sm text-ink-2">
+            {[lote.raza, lote.responsable].filter(Boolean).join(" · ") || "Sin raza ni responsable"}
+          </p>
+        </div>
 
-      {lote.observaciones && (
-        <p className="line-clamp-2 rounded-lg bg-slate-950/50 px-3 py-2 text-xs text-slate-500">
-          {lote.observaciones}
+        <p className="text-3xl font-semibold tracking-tight text-ink tabular-nums">
+          {lote.cantidad_huevos}
+          <span className="ml-1.5 text-sm text-muted">huevos</span>
         </p>
-      )}
 
-      <div className="mt-auto flex items-center gap-2 pt-2">
-        <Button variant="secondary" className="flex-1 px-3 py-2 text-xs" onClick={() => onEdit(lote)}>
-          <Pencil size={14} /> Editar
-        </Button>
-        <Button variant="danger" className="px-3 py-2 text-xs" onClick={() => onDelete(lote)}>
-          <Trash2 size={14} />
-        </Button>
+        {lote.observaciones && <p className="line-clamp-2 text-xs text-muted">{lote.observaciones}</p>}
+      </div>
+
+      <div className="flex border-t border-line text-sm">
+        <button onClick={() => onEdit(lote)} className="flex-1 py-2.5 text-ink-2 hover:bg-white/[0.04] hover:text-ink">
+          Editar
+        </button>
+        <button onClick={() => onDelete(lote)} className="flex-1 border-l border-line py-2.5 text-ink-2 hover:bg-bad-soft hover:text-bad">
+          Eliminar
+        </button>
       </div>
     </Card>
   );

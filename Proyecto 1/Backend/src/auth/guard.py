@@ -1,14 +1,4 @@
-"""Guardia global de autorizacion.
-
-Aplica las reglas de acceso desde un unico before_request en vez de decorar
-cada endpoint. Asi no hay que tocar los blueprints de src/api/ y todas las
-reglas quedan visibles en un solo lugar.
-
-Regla: lo que alimenta dashboards y visualizaciones (telemetria de solo
-lectura) queda publico para que Grafana, p5.js y Chart.js consuman datos
-reales sin fricción; todo lo que ESCRIBE o expone datos por operador exige
-token.
-"""
+"""Guardia global de autorizacion."""
 
 import re
 
@@ -34,15 +24,12 @@ PUBLICOS_EXACTOS = {
 }
 
 PUBLICOS_PREFIJOS = (
-    "/api/docs",       # Swagger UI y sus estaticos
+    "/api/docs",  # Swagger UI y sus estaticos
     "/static",
     "/favicon",
 )
 
-# (patron, metodos, requisito). Gana la primera que coincida.
-#   auth   -> cualquier usuario autenticado
-#   admin  -> solo rol administrador
-#   propio -> administrador, o el operador dueño del id_operador de la ruta
+# (patron, metodos, requisito).
 REGLAS = (
     (re.compile(r"^/api/operadores(/.*)?$"), ESCRITURAS, "admin"),
     (re.compile(r"^/api/operadores(/.*)?$"), {"GET"}, "auth"),
@@ -56,12 +43,10 @@ REGLAS = (
     (re.compile(r"^/api/diagnostico(/.*)?$"), {"GET"}, "auth"),
 )
 
-
 def _es_publico(path: str) -> bool:
     if path in PUBLICOS_EXACTOS:
         return True
     return path.startswith(PUBLICOS_PREFIJOS)
-
 
 def _aplicar(requisito: str, coincidencia):
     error = autenticar_peticion()
@@ -100,13 +85,12 @@ def _aplicar(requisito: str, coincidencia):
 
     return None
 
-
 def proteger_app(app):
     @app.before_request
     def _guardia():
         if not config.AUTH_ENABLED:
             return None
-        if request.method == "OPTIONS":   # preflight de CORS
+        if request.method == "OPTIONS":  # preflight de CORS
             return None
 
         path = request.path

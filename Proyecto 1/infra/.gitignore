@@ -1,0 +1,3 @@
+# El .env lleva credenciales (JWT_SECRET, claves de admin y de Grafana).
+# Se versiona .env.example, nunca .env.
+.env

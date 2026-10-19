@@ -11,8 +11,7 @@ export async function descargarReportePdf(tecnico) {
   await descargarBlob(res, "smartegg_reporte.pdf");
 }
 
-// Reporte PDF de un operador específico. Un operador solo puede pedir el suyo (el backend responde 403 si pide el de otro)
-// admin puede pedir el de cualquiera
+// Reporte PDF de un operador específico.
 export async function descargarReportePorOperador(idOperador, { tecnico } = {}) {
   const params = new URLSearchParams();
   if (tecnico) params.set("tecnico", tecnico);

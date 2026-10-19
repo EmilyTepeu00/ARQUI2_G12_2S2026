@@ -7,7 +7,7 @@ export function ProtectedRoute({ rolesPermitidos }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-500">
+      <div className="flex min-h-screen items-center justify-center font-mono text-xs uppercase tracking-wide text-muted">
         Verificando sesión...
       </div>
     );

@@ -43,7 +43,6 @@ GRIS_LINEA = colors.HexColor("#D5DBE1")
 # Limite de caracteres por celda
 MAX_CARACTERES_CELDA = 600
 
-
 # Utilidades de texto
 def _escapar(texto) -> str:
     """Escapa el mini-HTML que interpreta Paragraph."""
@@ -52,7 +51,6 @@ def _escapar(texto) -> str:
     texto = str(texto)
     return texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-
 def _texto_celda(valor, largo_max: int = MAX_CARACTERES_CELDA) -> str:
     """Prepara el contenido de una celda."""
     texto = _escapar(valor)
@@ -60,12 +58,10 @@ def _texto_celda(valor, largo_max: int = MAX_CARACTERES_CELDA) -> str:
         texto = texto[: largo_max - 1].rstrip() + "…"
     return texto
 
-
 def _fmt_fecha(valor, formato="%d/%m/%Y %H:%M"):
     if isinstance(valor, datetime):
         return valor.strftime(formato)
     return "-"
-
 
 def _fmt_num(valor, decimales=2, sufijo=""):
     if valor is None:
@@ -74,7 +70,6 @@ def _fmt_num(valor, decimales=2, sufijo=""):
         return f"{float(valor):.{decimales}f}{sufijo}"
     except (TypeError, ValueError):
         return str(valor)
-
 
 def _fmt_duracion(segundos):
     if segundos is None:
@@ -90,7 +85,6 @@ def _fmt_duracion(segundos):
     if horas:
         return f"{horas} h {minutos} min"
     return f"{minutos} min {seg} s"
-
 
 # Estilos
 def _construir_estilos():
@@ -218,7 +212,7 @@ def _tabla(
 ):
     """Construye una tabla"""
     col_widths = _anchos_columna(encabezados, proporciones, ancho_disponible)
-    
+
     data = [[Paragraph(_texto_celda(h), estilos["th"]) for h in encabezados]]
     for fila in filas:
         celda_fila = []
@@ -247,7 +241,6 @@ def _tabla(
         )
     )
     return tabla
-
 
 def _tarjetas_kpi(items, ancho_disponible, estilos):
     """Fila de indicadores tipo tarjeta."""
@@ -296,7 +289,6 @@ def _tarjetas_kpi(items, ancho_disponible, estilos):
     )
     return contenedor
 
-
 def _titulo_seccion(texto, ancho, estilos):
     """Título con regla de color debajo, en un solo bloque inseparable."""
     regla = Table([[""]], colWidths=[ancho], rowHeights=[2])
@@ -314,7 +306,6 @@ def _titulo_seccion(texto, ancho, estilos):
     return KeepTogether(
         [Paragraph(_escapar(texto), estilos["seccion"]), regla, Spacer(1, 0.25 * cm)]
     )
-
 
 # Numeración
 class _CanvasNumerado(pdfcanvas.Canvas):
@@ -350,7 +341,6 @@ class _CanvasNumerado(pdfcanvas.Canvas):
         self.drawString(1.8 * cm, 0.78 * cm, self._pie_texto[:120])
         self.drawRightString(ancho - 1.8 * cm, 0.78 * cm, f"Página {numero} de {total}")
         self.restoreState()
-
 
 # Encabezado
 def _bloque_portada(ancho, estilos, titulo, subtitulo, meta_lineas):
@@ -399,7 +389,6 @@ def _bloque_portada(ancho, estilos, titulo, subtitulo, meta_lineas):
     )
     return banda
 
-
 # Recolección de datos
 def _resolver_rango(desde=None, hasta=None):
     ahora = datetime.now(timezone.utc)
@@ -410,7 +399,6 @@ def _resolver_rango(desde=None, hasta=None):
     if desde > hasta:
         desde, hasta = hasta, desde
     return desde, hasta
-
 
 def recolectar_datos(desde=None, hasta=None, id_operador=None):
     """Reúne todo lo que necesita el PDF"""
@@ -452,7 +440,6 @@ def recolectar_datos(desde=None, hasta=None, id_operador=None):
         "estadisticas": stats,
         "id_operador": id_operador,
     }
-
 
 # Generación reportse
 def generar_reporte_pdf(

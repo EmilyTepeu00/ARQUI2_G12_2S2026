@@ -32,7 +32,7 @@ export function useAlarmStream(){
                 }
             }
             catch {
-                //payload inválido, se ignora
+                // payload inválido, se ignora
             }
         };
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Modal, Field } from "../ui/Modal";
 
 const ESTADOS = ["incubando", "eclosionado", "descartado"];
 const CODIGO_REGEX = /^[A-Za-z0-9-]+$/;
@@ -102,68 +102,42 @@ export function LoteFormModal({ open, onClose, onSubmit, initialData }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
-      <form
-        onSubmit={handleSubmit}
-        className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl"
-      >
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-100">
-            {isEdit ? "Editar lote" : "Nuevo lote"}
-          </h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 px-6 py-5 sm:grid-cols-2">
-          <Field label="Código" required>
-            <input required disabled={isEdit} value={form.codigo} onChange={handleChange("codigo")} className="input" placeholder="LOTE-001" maxLength={30} />
-          </Field>
-          <Field label="Nombre del lote" required>
-            <input required value={form.nombre_lote} onChange={handleChange("nombre_lote")} className="input" placeholder="Incubación agosto" maxLength={80} />
-          </Field>
-          <Field label="Cantidad de huevos" required>
-            <input required type="number" min="1" max={MAX_HUEVOS} step="1" value={form.cantidad_huevos} onChange={handleChange("cantidad_huevos")} className="input" placeholder="24" />
-          </Field>
-          <Field label="Raza">
-            <input value={form.raza} onChange={handleChange("raza")} className="input" placeholder="Leghorn" maxLength={50} />
-          </Field>
-          <Field label="Responsable">
-            <input value={form.responsable} onChange={handleChange("responsable")} className="input" placeholder="Nombre del responsable" maxLength={80} />
-          </Field>
-          <Field label="Estado">
-            <select value={form.estado} onChange={handleChange("estado")} className="input">
-              {ESTADOS.map((e) => (<option key={e} value={e}>{e}</option>))}
-            </select>
-          </Field>
-          <Field label="Observaciones" full>
-            <textarea value={form.observaciones} onChange={handleChange("observaciones")} className="input min-h-20 resize-none" placeholder="Notas adicionales..." maxLength={500} />
-            <span className="mt-1 self-end text-[11px] text-slate-600">{form.observaciones.length}/500</span>
-          </Field>
-        </div>
-
-        {error && (
-          <p className="mx-6 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>
-        )}
-
-        <div className="flex items-center justify-end gap-2 border-t border-slate-800 px-6 py-4">
+    <Modal
+      title={isEdit ? "Editar lote" : "Nuevo lote"}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      error={error}
+      footer={
+        <>
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="submit" disabled={saving}>{saving ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear lote"}</Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function Field({ label, required, full, children }) {
-  return (
-    <label className={`flex flex-col gap-1.5 ${full ? "sm:col-span-2" : ""}`}>
-      <span className="text-xs font-medium text-slate-400">
-        {label} {required && <span className="text-amber-500">*</span>}
-      </span>
-      {children}
-    </label>
+        </>
+      }
+    >
+      <Field label="Código" required>
+        <input required disabled={isEdit} value={form.codigo} onChange={handleChange("codigo")} className="input" placeholder="LOTE-001" maxLength={30} />
+      </Field>
+      <Field label="Nombre del lote" required>
+        <input required value={form.nombre_lote} onChange={handleChange("nombre_lote")} className="input" placeholder="Incubación agosto" maxLength={80} />
+      </Field>
+      <Field label="Cantidad de huevos" required>
+        <input required type="number" min="1" max={MAX_HUEVOS} step="1" value={form.cantidad_huevos} onChange={handleChange("cantidad_huevos")} className="input" placeholder="24" />
+      </Field>
+      <Field label="Raza">
+        <input value={form.raza} onChange={handleChange("raza")} className="input" placeholder="Leghorn" maxLength={50} />
+      </Field>
+      <Field label="Responsable">
+        <input value={form.responsable} onChange={handleChange("responsable")} className="input" placeholder="Nombre del responsable" maxLength={80} />
+      </Field>
+      <Field label="Estado">
+        <select value={form.estado} onChange={handleChange("estado")} className="input">
+          {ESTADOS.map((e) => (<option key={e} value={e}>{e}</option>))}
+        </select>
+      </Field>
+      <Field label="Observaciones" full>
+        <textarea value={form.observaciones} onChange={handleChange("observaciones")} className="input min-h-20 resize-none" placeholder="Notas adicionales..." maxLength={500} />
+        <span className="mt-1 self-end text-[11px] text-muted">{form.observaciones.length}/500</span>
+      </Field>
+    </Modal>
   );
 }

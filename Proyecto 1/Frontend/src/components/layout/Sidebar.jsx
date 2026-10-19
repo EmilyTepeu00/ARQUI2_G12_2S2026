@@ -1,68 +1,72 @@
 import { NavLink } from "react-router-dom";
 import clsx from "clsx";
-import { LayoutDashboard, History, BellRing, Boxes, FileDown, Egg, UserCircle, Users } from "lucide-react";
+import { LayoutDashboard, History, BellRing, Boxes, FileDown, UserCircle, Users, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import logoIcono from "../../assets/logo-icono.png";
 
 const LINKS = [
-  { to: "/", label: "Panel en vivo", icon: LayoutDashboard, end: true },
+  { to: "/", label: "Panel", icon: LayoutDashboard, end: true },
   { to: "/historial", label: "Historial", icon: History },
   { to: "/alarmas", label: "Alarmas", icon: BellRing },
   { to: "/lotes", label: "Lotes", icon: Boxes },
   { to: "/reportes", label: "Reportes", icon: FileDown },
-  { to: "/perfil", label: "Mi perfil", icon: UserCircle },
+  { to: "/perfil", label: "Perfil", icon: UserCircle },
 ];
 
 const LINKS_ADMIN = [{ to: "/operadores", label: "Operadores", icon: Users }];
 
-export function Sidebar({ open, onClose }) {
-  const { esAdministrador } = useAuth();
+/* Vertical en escritorio; en pantallas chicas se vuelve una fila con scroll. */
+export function Sidebar() {
+  const { esAdministrador, logout } = useAuth();
   const links = esAdministrador ? [...LINKS, ...LINKS_ADMIN] : LINKS;
 
   return (
-    <>
-      {open && (
-        <div className="fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-sm lg:hidden" onClick={onClose} />
-      )}
-      <aside
-        className={clsx(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-800/80 bg-slate-950/95 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex items-center gap-3 border-b border-slate-800/80 px-5 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-lg shadow-lg shadow-amber-500/20">
-            <Egg size={20} className="text-slate-950" strokeWidth={2.5} />
-          </div>
-          <div>
-            <p className="text-sm font-bold leading-tight text-slate-50">SmartEgg</p>
-            <p className="text-xs text-slate-500">Incubadora inteligente</p>
-          </div>
-        </div>
+    <aside className="flex shrink-0 flex-col border-b border-line bg-black/20 lg:w-56 lg:border-b-0 lg:border-r">
+      <div className="flex items-center gap-2.5 px-6 pb-2 pt-5 lg:pb-8 lg:pt-7">
+        <img src={logoIcono} alt="" className="h-8 w-8 object-contain" />
+        <span className="text-lg font-bold tracking-tight">SmartEgg</span>
+      </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {links.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={onClose}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive ? "bg-amber-500/10 text-amber-400" : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-                )
-              }
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+      <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:pb-0">
+        {links.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              clsx(
+                "group flex shrink-0 items-center gap-3 rounded-full py-1.5 pl-1.5 pr-4 text-sm transition-colors",
+                isActive ? "bg-white/[0.06] text-ink" : "text-muted hover:text-ink"
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <span
+                  className={clsx(
+                    "flex h-8 w-8 items-center justify-center rounded-full transition",
+                    isActive
+                      ? "bg-gradient-to-b from-[#5b78ff] to-[#3a55e6] text-white shadow-[0_0_18px_rgb(76_107_255/0.7)]"
+                      : "bg-white/[0.04] group-hover:bg-white/[0.08]"
+                  )}
+                >
+                  <Icon size={15} />
+                </span>
+                {label}
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
 
-        <div className="border-t border-slate-800/80 px-5 py-4">
-          <p className="text-xs text-slate-600">Proyecto SmartEgg &middot; AYC2 G12</p>
-        </div>
-      </aside>
-    </>
+      <div className="hidden px-3 pb-6 lg:block">
+        <button onClick={logout} className="flex w-full items-center gap-3 rounded-full py-1.5 pl-1.5 pr-4 text-sm text-muted transition-colors hover:text-bad">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.04]">
+            <LogOut size={15} />
+          </span>
+          Cerrar sesión
+        </button>
+      </div>
+    </aside>
   );
 }

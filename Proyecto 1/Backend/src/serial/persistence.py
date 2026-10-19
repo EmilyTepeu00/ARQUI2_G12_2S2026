@@ -1,16 +1,9 @@
-"""
-Envoltura de la capa de datos para el lector serial.
-
-Existe para que un fallo de la base nunca tumbe el hilo que lee el Arduino:
-cada metodo atrapa la excepcion, la loguea y devuelve None. El lector sigue
-leyendo y publicando por MQTT aunque Mongo este caido.
-"""
+"""Envoltura de la capa de datos para el lector serial."""
 
 from src.db import db
 from src.logger import get_logger
 
 log = get_logger("serial.persist")
-
 
 class Persistencia:
     """Envuelve la capa de datos y absorbe sus fallos"""
@@ -62,6 +55,5 @@ class Persistencia:
         except Exception as exc:
             log.error("Fallo al consultar operador: %s", exc)
             return False
-
 
 persistencia = Persistencia()

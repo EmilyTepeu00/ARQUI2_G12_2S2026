@@ -3,12 +3,6 @@ import { API_BASE_URL } from "../api/client";
 import { sensorsApi } from "../api/sensors";
 import { MAX_CHART_POINTS } from "../utils/constants";
 
-/**
- * Se suscribe al stream SSE del backend (/api/sensores/stream) para recibir
- * lecturas del Arduino en tiempo real, y mantiene un historial reciente para
- * graficar. Si el stream se cae, EventSource reintenta solo; además hacemos
- * polling de respaldo a /api/sensores/actual mientras el stream no esté vivo.
- */
 export function useSensorStream() {
   const [lectura, setLectura] = useState(null);
   const [history, setHistory] = useState([]);

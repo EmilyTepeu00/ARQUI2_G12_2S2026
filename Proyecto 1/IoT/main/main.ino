@@ -8,7 +8,8 @@
 #include "actuators.h"
 #include "lcd_display.h"
 #include "estado_compartido.h"
-#include "puerta.h"            
+#include "puerta.h"
+#include "bluetooth.h"
 
 #define MS_A_TICKS(ms)                                                        \
     ( (TickType_t)( ((uint32_t)(ms) * configTICK_RATE_HZ) / 1000UL ) > 0      \
@@ -21,7 +22,7 @@ static const TickType_t PERIODO_CONTROL  = MS_A_TICKS(250);
 static const TickType_t PERIODO_LCD      = MS_A_TICKS(500);
 static const TickType_t PERIODO_SERIAL   = MS_A_TICKS(1000);
 static const TickType_t PERIODO_SENSORES = MS_A_TICKS(MUESTREO_MS);
-static const TickType_t PERIODO_PUERTA   = MS_A_TICKS(20);   
+static const TickType_t PERIODO_PUERTA   = MS_A_TICKS(20);
 
 #define PRIO_ENTRADAS   (tskIDLE_PRIORITY + 3)
 #define PRIO_SERVO      (tskIDLE_PRIORITY + 2)
@@ -47,7 +48,7 @@ static void TareaPuerta(void *pvParameters);
 #define STACK_SERVO     256
 #define STACK_LCD       320
 #define STACK_SERIAL    320
-#define STACK_PUERTA    384   
+#define STACK_PUERTA    448   // +64 por el parser de comandos Bluetooth
 
 static void crearTarea(TaskFunction_t fn, const char *nombre,
                        uint16_t stack, UBaseType_t prioridad) {
@@ -65,6 +66,7 @@ void setup() {
     sensors_init();
 #if PUERTA_HABILITADA
     puertaInit();
+    bluetoothInit();
 #endif
 
     if (!estadoInit()) {
@@ -185,7 +187,6 @@ static void TareaLCD(void *pvParameters) {
     }
 }
 
-
 #if PUERTA_HABILITADA
 static void TareaPuerta(void *pvParameters) {
     (void) pvParameters;
@@ -194,12 +195,12 @@ static void TareaPuerta(void *pvParameters) {
 
     for (;;) {
         puertaActualizar();
+        bluetoothActualizar();
 
         vTaskDelayUntil(&ultimaEjecucion, PERIODO_PUERTA);
     }
 }
 #endif  // PUERTA_HABILITADA
-
 
 static void TareaSerial(void *pvParameters) {
     (void) pvParameters;
@@ -221,6 +222,8 @@ static void TareaSerial(void *pvParameters) {
         Serial.print(estado.espaciosLibres);
         Serial.print(F(",\"puerta_abierta\":"));
         Serial.print(estado.puertaAbierta ? 1 : 0);
+        Serial.print(F(",\"rotacion\":"));
+        Serial.print(servoRotando() ? 1 : 0);
         Serial.print(F(",\"id_operador_actual\":"));
         if (strlen(estado.idOperadorActual) > 0) {
             Serial.print(F("\""));
@@ -231,8 +234,6 @@ static void TareaSerial(void *pvParameters) {
         }
         Serial.println(F("}"));
 
-        // Se drena la cola completa: si se acumularon varios eventos mientras
-        // la tarea dormia, todos salen en este mismo ciclo y no se retrasan.
         EventoPuertaPendiente evento;
         while (estadoConsumirEventoPuerta(evento)) {
             if (evento.tipo == EVENTO_PUERTA_ACCESO) {

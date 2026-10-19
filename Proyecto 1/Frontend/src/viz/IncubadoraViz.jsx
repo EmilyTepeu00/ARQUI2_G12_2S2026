@@ -11,11 +11,11 @@ const COLOR_CALIENTE = new THREE.Color("#f87171");
 function colorPorTemperatura(temp){
     if (temp == null) return COLOR_NORMAL;
     if (temp < 37){
-        const t = THREE.MathUtils.clamp((37 - temp) / 5, 0, 1); //Hasta 3°C por debajo
+        const t = THREE.MathUtils.clamp((37 - temp) / 5, 0, 1); // Hasta 3°C por debajo
         return new THREE.Color().lerpColors(COLOR_NORMAL, COLOR_FRIO, t);
     }
     if (temp > 38) {
-        const t = THREE.MathUtils.clamp((temp - 38) / 5, 0, 1); //Hasta 3°C por encima
+        const t = THREE.MathUtils.clamp((temp - 38) / 5, 0, 1); // Hasta 3°C por encima
         return new THREE.Color().lerpColors(COLOR_NORMAL, COLOR_CALIENTE, t);
     }
     return COLOR_NORMAL
@@ -29,7 +29,7 @@ export function IncubadoraViz({ temperatura, rotacionActiva, espaciosLibres }){
     }, [temperatura]);
 
     return(
-        <div className="h-96 rounded-2x1 border border-slate-800 bg-slate-900/40">
+        <div className="h-full min-h-80">
             <Canvas camera={{ position: [-0.5,3,4.5] }} shadows>
                 <ambientLight intensity={0.8} />
                 <directionalLight

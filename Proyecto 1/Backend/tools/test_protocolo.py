@@ -30,9 +30,7 @@ CASOS_OK = [
         '"huevos_delta":3}',
         protocol.TIPO_PUERTA,
     ),
-    # El firmware emite esto cuando alguien pasa una tarjeta que no está
-    # registrada. Antes caía en la rama de lectura y reventaba pidiendo una
-    # temperatura que el mensaje nunca trae.
+    # El firmware emite esto cuando alguien pasa una tarjeta que no está registrada.
     (
         "tarjeta no registrada",
         '{"evento":"tarjeta_no_registrada","uid":"A1B2C3D4"}',
@@ -50,9 +48,7 @@ CASOS_IGNORADOS = [
     ("línea vacía", "   "),
     ("ruido", "\x00\xff basura"),
     ("json que no es objeto", "[1,2,3]"),
-    # El formato de texto plano es de la Práctica 1. El firmware del proyecto
-    # emite solo JSON, así que estas líneas ya no deben interpretarse: se
-    # ignoran igual que cualquier otro texto suelto del puerto serial.
+    # El formato de texto plano es de la Práctica 1.
     (
         "formato de texto viejo (Práctica 1)",
         "Temperatura: 37.50, Humedad: 55.00, Sistema Encendido: 1, Alarma: 0, Espacios Libres: 3",
