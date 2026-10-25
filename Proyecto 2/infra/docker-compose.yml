@@ -1,0 +1,215 @@
+name: smartegg
+
+services:
+
+  # Broker
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: smartegg-mosquitto
+    entrypoint: ["/bin/sh", "/mosquitto/config/iniciar.sh"]
+    environment:
+      MQTT_USER: ${MQTT_USER:-smartegg}
+      MQTT_PASS: ${MQTT_PASS:?Defina MQTT_PASS en .env}
+    restart: unless-stopped
+    ports:
+      - "${MQTT_PORT_HOST:-1883}:1883"     # MQTT nativo (backend, Grafana)
+      - "${MQTT_WS_PORT_HOST:-9001}:9001"  # WebSocket (alarmas en el navegador)
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/iniciar.sh:/mosquitto/config/iniciar.sh:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks: [smartegg_net]
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -u \"$$MQTT_USER\" -P \"$$MQTT_PASS\" -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Base de datos
+  mongo:
+    image: mongo:${MONGO_TAG:-7}
+    container_name: smartegg-mongo
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT_HOST:-27017}:27017"
+    volumes:
+      # El historial NO se sobrescribe ni se pierde al recrear el contenedor.
+      - mongo_data:/data/db
+    networks: [smartegg_net]
+    healthcheck:
+      # mongosh en Mongo 5+; el binario `mongo` en 4.4 (MONGO_TAG=4.4, CPU sin AVX).
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' || mongo --quiet --eval 'db.adminCommand(\"ping\").ok' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Backend
+  backend:
+    build:
+      context: ../Backend
+      dockerfile: Dockerfile
+    image: smartegg-backend:latest
+    container_name: smartegg-backend
+    restart: unless-stopped
+    init: true
+    env_file: [.env]
+    environment:
+      # Ganan sobre .env: dentro de la red los host son los nombres de servicio.
+      SERIAL_ENABLED: "false"
+      MQTT_USERNAME: ${MQTT_USER:-smartegg}
+      MQTT_PASSWORD: ${MQTT_PASS}
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017}
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: 5000
+    ports:
+      - "${BACKEND_PORT_HOST:-5000}:5000"
+    volumes:
+      - ../Backend/tools:/app/tools:ro
+    depends_on:
+      mosquitto:
+        condition: service_started
+      mongo:
+        condition: service_healthy
+    networks: [smartegg_net]
+
+  ml:
+    build: ../ml
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      MQTT_USER: ${MQTT_USER:-smartegg}
+      MQTT_PASS: ${MQTT_PASS}
+      NODE_ID: ${NODE_ID:-incubadora-01}
+    depends_on: [mosquitto]
+    networks: [smartegg_net]
+
+  vision:
+    build: ../vision
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      MQTT_USER: ${MQTT_USER:-smartegg}
+      MQTT_PASS: ${MQTT_PASS}
+      DEVICE_ID: ${NODE_ID:-incubadora-01}
+    volumes:
+      - ../vision/evidencias:/app/evidencias
+      # Montado para recalibrar el ROI (plataforma.sh roi) sin reconstruir la imagen.
+      - ../vision/models:/app/models:ro
+    depends_on: [mosquitto]
+    networks: [smartegg_net]
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:11.6.11
+    container_name: smartegg-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT_HOST:-3000}:3000"
+    environment:
+      MQTT_USER: ${MQTT_USER:-smartegg}
+      MQTT_PASS: ${MQTT_PASS}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Ninguno de los dos datasources viene con Grafana; se instalan al arrancar.
+      GF_INSTALL_PLUGINS: ${GRAFANA_PLUGINS:-grafana-mqtt-datasource 1.2.1,yesoreyeram-infinity-datasource 4.0.0}
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-mqtt-datasource
+      GF_USERS_DEFAULT_THEME: light
+      # Grafana queda servida bajo /grafana/ detras del proxy.
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:8080/grafana/}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Para que el dashboard se vea SIN iniciar sesion.
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANON_ENABLED:-false}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANON_ROLE:-Viewer}
+      GF_SECURITY_ALLOW_EMBEDDING: ${GRAFANA_ALLOW_EMBEDDING:-false}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # Dashboards y datasources: se cargan solos al levantar.
+      - ../Grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      mosquitto:
+        condition: service_started
+      mongo:
+        condition: service_healthy
+    networks: [smartegg_net]
+
+  # Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: smartegg-caddy
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_PORT_HOST:-8080}:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+      grafana:
+        condition: service_started
+      mosquitto:
+        condition: service_started
+    networks: [smartegg_net]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Tunel publico
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: smartegg-tunel
+    restart: unless-stopped
+    profiles: [publico]
+    command: tunnel --no-autoupdate --url http://caddy:80
+    depends_on:
+      caddy:
+        condition: service_started
+    networks: [smartegg_net]
+
+  # Frontend
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-smartegg}
+        VITE_MQTT_NODE_ID: ${NODE_ID:-incubadora-01}
+    image: smartegg-frontend:latest
+    container_name: smartegg-frontend
+    restart: unless-stopped
+    # Se publica solo para depurar.
+    ports:
+      - "${FRONTEND_PORT_HOST:-5173}:80"
+    depends_on: [backend]
+    networks: [smartegg_net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mosquitto_data:
+  mosquitto_log:
+  mongo_data:
+  grafana_data:
+
+networks:
+  smartegg_net:
+    driver: bridge

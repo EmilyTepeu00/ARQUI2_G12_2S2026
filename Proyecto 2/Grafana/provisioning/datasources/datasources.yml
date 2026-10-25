@@ -1,0 +1,29 @@
+# Datasources de SmartEgg.
+apiVersion: 1
+
+datasources:
+
+  # Broker MQTT
+  - name: SmartEgg MQTT
+    uid: smartegg-mqtt
+    type: grafana-mqtt-datasource
+    access: proxy
+    isDefault: false
+    editable: true
+    jsonData:
+      uri: tcp://mosquitto:1883
+      username: $MQTT_USER
+    secureJsonData:
+      password: $MQTT_PASS
+
+  # Historico
+  - name: SmartEgg API
+    uid: smartegg-api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: true
+    editable: true
+    jsonData:
+      auth_method: none
+      global_queries: []
+    url: http://backend:5000

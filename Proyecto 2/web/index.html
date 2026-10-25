@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SmartEgg – Panel interactivo</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+</head>
+<body>
+
+  <header class="top">
+    <div class="brand">
+      <img src="logo.png" alt="Logo de SmartEgg">
+      <span>SmartEgg</span>
+      <span class="node" id="nodo"></span>
+    </div>
+    <span id="badge" class="badge neutral"><i></i><span id="badgeTxt">Sin conexión</span></span>
+  </header>
+
+  <div id="lock" class="lock">
+    <div>
+      <strong>Sistema bloqueado.</strong>
+      <span id="motivo"></span>
+    </div>
+    <button id="unlock" class="btn danger">Desbloquear (administrador)</button>
+  </div>
+
+  <main class="grid">
+
+    <section class="card accent canvas-card">
+      <div class="card-head">
+        <h2>Incubadora en vivo</h2>
+        <p>En cada volteo la bandeja gira 45° hacia el otro lado.</p>
+      </div>
+      <div id="cv"></div>
+      <div class="chips">
+        <span id="chVis" class="badge neutral"><i></i>Visión: sin datos</span>
+        <span id="chMl" class="badge neutral"><i></i>Modelo ML: sin datos</span>
+        <span id="chCiclo" class="badge neutral"><i></i>Ciclo detenido</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Temperatura</h2><p>Rango ideal: 37 – 38 °C</p></div>
+      <div class="value" id="vT">—</div>
+      <div class="meter"><div class="band" id="bT"></div><div class="mark" id="mT"></div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Humedad</h2><p>Rango ideal: 50 – 65 %</p></div>
+      <div class="value" id="vH">—</div>
+      <div class="meter"><div class="band" id="bH"></div><div class="mark" id="mH"></div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Consumo eléctrico</h2><p>Potencia actual y energía del ciclo</p></div>
+      <div class="value" id="vW">—</div>
+      <p class="sub" id="vKwh">Energía del ciclo: —</p>
+    </section>
+
+    <section class="card controls">
+      <div class="card-head"><h2>Controles</h2><p>Todas las órdenes viajan por MQTT.</p></div>
+      <div class="btns">
+        <button class="btn primary ctl" data-sys="iniciar">Iniciar ciclo</button>
+        <button class="btn secondary ctl" data-sys="detener">Detener ciclo</button>
+        <span class="sep"></span>
+        <button class="btn secondary ctl" data-act="calefaccion">Calefacción</button>
+        <button class="btn secondary ctl" data-act="ventilacion">Ventilación</button>
+        <button class="btn secondary ctl" data-act="rotacion">Volteo</button>
+      </div>
+      <p class="sub" id="alarma">Sin alarmas recientes.</p>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

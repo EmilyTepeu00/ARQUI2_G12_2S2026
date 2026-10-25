@@ -1,0 +1,6 @@
+# Versiones fijas: el modelo .joblib debe cargarse con la misma versión de scikit-learn con la que se entrenó.
+scikit-learn==1.9.1
+pandas==3.0.6
+numpy==2.5.4
+joblib==1.6.0
+paho-mqtt>=2.0

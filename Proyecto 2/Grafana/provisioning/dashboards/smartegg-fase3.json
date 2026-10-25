@@ -1,0 +1,999 @@
+{
+  "uid": "smartegg-fase3",
+  "title": "SmartEgg - Fase 3",
+  "description": "Estado del sistema, visión, modelo ML y consumo eléctrico. Los datos salen de /api/fase3/*.",
+  "tags": [
+    "smartegg",
+    "fase3"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Estado del sistema",
+      "description": "NORMAL o BLOQUEADO (lo decide el backend con la visión).",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "NORMAL": {
+                  "text": "NORMAL",
+                  "color": "green",
+                  "index": 0
+                },
+                "BLOQUEADO": {
+                  "text": "BLOQUEADO",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/estado",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "estado_texto",
+              "text": "Estado del sistema",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Ciclo",
+      "description": "Si el ciclo de incubación está en marcha.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "EN MARCHA": {
+                  "text": "EN MARCHA",
+                  "color": "green",
+                  "index": 0
+                },
+                "DETENIDO": {
+                  "text": "DETENIDO",
+                  "color": "text",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/estado",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "ciclo_texto",
+              "text": "Ciclo",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Visión (última clase)",
+      "description": "Última clasificación de la cámara.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "huevo": {
+                  "text": "huevo",
+                  "color": "green",
+                  "index": 0
+                },
+                "objeto_extrano": {
+                  "text": "objeto_extrano",
+                  "color": "red",
+                  "index": 1
+                },
+                "vacio": {
+                  "text": "vacio",
+                  "color": "blue",
+                  "index": 2
+                },
+                "sin datos": {
+                  "text": "sin datos",
+                  "color": "text",
+                  "index": 3
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/estado",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "vision_clase",
+              "text": "Visión (última clase)",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Modelo ML",
+      "description": "Último resultado del detector de anomalías.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "NORMAL": {
+                  "text": "NORMAL",
+                  "color": "green",
+                  "index": 0
+                },
+                "ANOMALÍA": {
+                  "text": "ANOMALÍA",
+                  "color": "red",
+                  "index": 1
+                },
+                "SIN DATOS": {
+                  "text": "SIN DATOS",
+                  "color": "text",
+                  "index": 2
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/estado",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "ml_texto",
+              "text": "Modelo ML",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Potencia actual",
+      "description": "Consumo estimado ahora (suma de actuadores encendidos).",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "watt",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/estado",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "potencia_actual_w",
+              "text": "Potencia actual",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Energía del ciclo",
+      "description": "Energía acumulada desde que inició el ciclo.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "kwatth",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/estado",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "energia_ciclo_kwh",
+              "text": "Energía del ciclo",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Potencia eléctrica",
+      "description": "Watts estimados cada vez que cambia el estado de los actuadores.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/fase3/energia?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "datos",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "potencia_actual_w",
+              "text": "Potencia (W)",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Energía del ciclo vs. límite",
+      "description": "kWh acumulados en el ciclo frente al límite configurado.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "unit": "kwatth",
+          "decimals": 4
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Límite"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/fase3/energia?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "datos",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "energia_ciclo_kwh",
+              "text": "Energía del ciclo",
+              "type": "number"
+            },
+            {
+              "selector": "limite_ciclo_kwh",
+              "text": "Límite",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Confianza de la visión",
+      "description": "Confianza (%) de cada clasificación de la cámara.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 7,
+            "showPoints": "always",
+            "lineWidth": 1,
+            "fillOpacity": 0
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/fase3/vision?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "datos",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "confianza_pct",
+              "text": "Confianza (%)",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Modelo ML: anomalías",
+      "description": "1 = lectura anómala, 0 = normal.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "max": 1.2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/fase3/ml?desde=${__from:date:iso}&hasta=${__to:date:iso}",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "datos",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "anomalia",
+              "text": "Anomalía",
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Bloqueos y alarmas",
+      "description": "Eventos del sistema, los más recientes primero.",
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/eventos?desde=${__from:date:iso}&hasta=${__to:date:iso}&limit=50",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "datos",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "Cuándo",
+              "type": "timestamp"
+            },
+            {
+              "selector": "tipo",
+              "text": "Tipo",
+              "type": "string"
+            },
+            {
+              "selector": "categoria",
+              "text": "Categoría",
+              "type": "string"
+            },
+            {
+              "selector": "descripcion",
+              "text": "Detalle",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "Cuándo": 0,
+              "Tipo": 1,
+              "Categoría": 2,
+              "Detalle": 3
+            },
+            "renameByName": {}
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Visión reciente",
+      "description": "Últimas clasificaciones de la cámara.",
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 20
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "smartegg-api"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "smartegg-api"
+          },
+          "type": "json",
+          "parser": "backend",
+          "source": "url",
+          "format": "table",
+          "url": "/api/fase3/vision?desde=${__from:date:iso}&hasta=${__to:date:iso}&limit=30",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "datos",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "Cuándo",
+              "type": "timestamp"
+            },
+            {
+              "selector": "clase",
+              "text": "Clase",
+              "type": "string"
+            },
+            {
+              "selector": "confianza_pct",
+              "text": "Confianza (%)",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "Cuándo": 0,
+              "Clase": 1,
+              "Confianza (%)": 2
+            },
+            "renameByName": {}
+          }
+        }
+      ]
+    }
+  ]
+}

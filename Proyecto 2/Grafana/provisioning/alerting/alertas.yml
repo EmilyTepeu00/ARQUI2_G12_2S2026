@@ -1,0 +1,219 @@
+# Alertas de la Fase 3
+# Para verlas: Alerting > Alert rules, si Grafana no arranca por este archivo borrarlo y reiniciar
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: smartegg-fase3
+    folder: SmartEgg
+    interval: 10s
+    rules:
+      - uid: smartegg-alerta-bloqueo
+        title: "Sistema bloqueado por visión"
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severidad: critica
+          modulo: vision
+        annotations:
+          summary: "La cámara detectó un objeto que no es un huevo y el sistema se bloqueó."
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: smartegg-api
+            model:
+              refId: A
+              datasource:
+                type: yesoreyeram-infinity-datasource
+                uid: smartegg-api
+              type: json
+              parser: backend
+              source: url
+              format: table
+              url: /api/fase3/estado
+              url_options:
+                method: GET
+              root_selector: ""
+              columns:
+                - selector: bloqueado
+                  text: bloqueado
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+      - uid: smartegg-alerta-ml
+        title: "Anomalía detectada por el modelo ML"
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severidad: advertencia
+          modulo: ml
+        annotations:
+          summary: "El modelo de machine learning marcó la última lectura como anómala."
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: smartegg-api
+            model:
+              refId: A
+              datasource:
+                type: yesoreyeram-infinity-datasource
+                uid: smartegg-api
+              type: json
+              parser: backend
+              source: url
+              format: table
+              url: /api/fase3/estado
+              url_options:
+                method: GET
+              root_selector: ""
+              columns:
+                - selector: ml_anomalia
+                  text: ml_anomalia
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.5
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+      - uid: smartegg-alerta-consumo
+        title: "Consumo del ciclo sobre el umbral"
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severidad: advertencia
+          modulo: energia
+        annotations:
+          summary: "La energía acumulada del ciclo superó el límite (0.01 kWh, igual a ENERGY_LIMIT_KWH_PER_CYCLE)."
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: smartegg-api
+            model:
+              refId: A
+              datasource:
+                type: yesoreyeram-infinity-datasource
+                uid: smartegg-api
+              type: json
+              parser: backend
+              source: url
+              format: table
+              url: /api/fase3/estado
+              url_options:
+                method: GET
+              root_selector: ""
+              columns:
+                - selector: energia_ciclo_kwh
+                  text: energia_ciclo_kwh
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              datasource:
+                type: __expr__
+                uid: __expr__
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.01
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__

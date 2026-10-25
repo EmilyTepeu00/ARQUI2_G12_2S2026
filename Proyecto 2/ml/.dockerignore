@@ -1,0 +1,5 @@
+.venv
+data
+evidencias
+*.ipynb
+__pycache__

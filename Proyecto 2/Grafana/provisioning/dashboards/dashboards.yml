@@ -1,0 +1,14 @@
+# Carga los .json de la carpeta dashboards/ al arrancar Grafana.
+apiVersion: 1
+
+providers:
+  - name: SmartEgg
+    orgId: 1
+    folder: SmartEgg
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

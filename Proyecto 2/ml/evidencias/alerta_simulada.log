@@ -1,0 +1,22 @@
+# Log del servicio
+2026-10-20 21:56:16,629 INFO Conectado al broker localhost:18830 (rc=Success), umbral=1.631
+2026-10-20 21:56:18,704 INFO incubadora-01 -> normal puntaje=0.97 (calefaccion z=-0.9)
+2026-10-20 21:56:24,692 INFO incubadora-01 -> normal puntaje=1.05 (calefaccion z=-0.9)
+2026-10-20 21:56:29,694 INFO incubadora-01 -> normal puntaje=5.92 (d_temp z=1.2)
+2026-10-20 21:56:30,694 INFO incubadora-01 -> ANOMALIA puntaje=6.46 (temperatura z=1.1)
+2026-10-20 21:56:35,695 INFO incubadora-01 -> ANOMALIA puntaje=7.79 (temperatura z=1.4)
+2026-10-20 21:56:39,783 INFO incubadora-01 -> normal puntaje=1.00 (calefaccion z=-0.9)
+2026-10-20 21:56:44,784 INFO incubadora-01 -> normal puntaje=2.36 (d_hum z=-10.3)
+2026-10-20 21:56:45,784 INFO incubadora-01 -> ANOMALIA puntaje=2.39 (d_hum z=-10.3)
+2026-10-20 21:56:50,787 INFO incubadora-01 -> ANOMALIA puntaje=2.98 (d_hum z=-10.3)
+
+# Mensajes publicados en smartegg/+/ml/anomalia
+smartegg/incubadora-01/ml/anomalia {"anomalia": false, "puntaje": 0.9692, "umbral": 1.6314, "lecturas_atipicas_seguidas": 0, "variable_principal": "calefaccion", "desviacion_z": -0.92, "modelo": "LOF", "lectura": {"temperatura": 37.5, "humedad": 57.0, "calefaccion": 0.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.0, "d_hum": 0.0}, "timestamp": "2026-10-21T03:56:18.704039+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": false, "puntaje": 1.0455, "umbral": 1.6314, "lecturas_atipicas_seguidas": 0, "variable_principal": "calefaccion", "desviacion_z": -0.92, "modelo": "LOF", "lectura": {"temperatura": 37.53, "humedad": 57.0, "calefaccion": 0.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.06, "d_hum": 0.0}, "timestamp": "2026-10-21T03:56:24.692789+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": false, "puntaje": 5.9196, "umbral": 1.6314, "lecturas_atipicas_seguidas": 2, "variable_principal": "d_temp", "desviacion_z": 1.21, "modelo": "LOF", "lectura": {"temperatura": 38.22, "humedad": 57.0, "calefaccion": 1.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.37, "d_hum": 0.0}, "timestamp": "2026-10-21T03:56:29.694161+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": true, "puntaje": 6.4622, "umbral": 1.6314, "lecturas_atipicas_seguidas": 3, "variable_principal": "temperatura", "desviacion_z": 1.11, "modelo": "LOF", "lectura": {"temperatura": 38.54, "humedad": 57.0, "calefaccion": 1.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.32, "d_hum": 0.0}, "timestamp": "2026-10-21T03:56:30.694399+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": true, "puntaje": 7.7906, "umbral": 1.6314, "lecturas_atipicas_seguidas": 8, "variable_principal": "temperatura", "desviacion_z": 1.43, "modelo": "LOF", "lectura": {"temperatura": 40.25, "humedad": 57.0, "calefaccion": 1.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.3, "d_hum": 0.0}, "timestamp": "2026-10-21T03:56:35.695346+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": false, "puntaje": 1.0018, "umbral": 1.6314, "lecturas_atipicas_seguidas": 0, "variable_principal": "calefaccion", "desviacion_z": -0.92, "modelo": "LOF", "lectura": {"temperatura": 37.47, "humedad": 57.0, "calefaccion": 0.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": -0.04, "d_hum": 0.0}, "timestamp": "2026-10-21T03:56:39.783286+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": false, "puntaje": 2.3572, "umbral": 1.6314, "lecturas_atipicas_seguidas": 2, "variable_principal": "d_hum", "desviacion_z": -10.27, "modelo": "LOF", "lectura": {"temperatura": 37.52, "humedad": 50.0, "calefaccion": 0.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.0, "d_hum": -3.499}, "timestamp": "2026-10-21T03:56:44.784409+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": true, "puntaje": 2.3923, "umbral": 1.6314, "lecturas_atipicas_seguidas": 3, "variable_principal": "d_hum", "desviacion_z": -10.27, "modelo": "LOF", "lectura": {"temperatura": 37.53, "humedad": 46.5, "calefaccion": 0.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": 0.01, "d_hum": -3.499}, "timestamp": "2026-10-21T03:56:45.784700+00:00"}
+smartegg/incubadora-01/ml/anomalia {"anomalia": true, "puntaje": 2.9832, "umbral": 1.6314, "lecturas_atipicas_seguidas": 8, "variable_principal": "d_hum", "desviacion_z": -10.28, "modelo": "LOF", "lectura": {"temperatura": 37.48, "humedad": 29.0, "calefaccion": 0.0, "ventilacion": 0.0, "rotacion": 0.0, "d_temp": -0.04, "d_hum": -3.499}, "timestamp": "2026-10-21T03:56:50.787317+00:00"}

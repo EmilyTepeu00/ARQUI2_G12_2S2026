@@ -1,0 +1,6 @@
+-r requirements.txt
+matplotlib
+seaborn
+nbformat
+nbconvert
+ipykernel

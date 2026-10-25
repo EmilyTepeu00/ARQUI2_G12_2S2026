@@ -1,0 +1,111 @@
+{
+  "exactitud_test": 0.9717514124293786,
+  "matriz_confusion": [
+    [
+      32,
+      0,
+      0
+    ],
+    [
+      2,
+      99,
+      3
+    ],
+    [
+      0,
+      0,
+      41
+    ]
+  ],
+  "clases": [
+    "huevo",
+    "objeto",
+    "vacio"
+  ],
+  "reporte": {
+    "huevo": {
+      "precision": 0.9411764705882353,
+      "recall": 1.0,
+      "f1-score": 0.9696969696969697,
+      "support": 32.0
+    },
+    "objeto": {
+      "precision": 1.0,
+      "recall": 0.9519230769230769,
+      "f1-score": 0.9753694581280788,
+      "support": 104.0
+    },
+    "vacio": {
+      "precision": 0.9318181818181818,
+      "recall": 1.0,
+      "f1-score": 0.9647058823529412,
+      "support": 41.0
+    },
+    "accuracy": 0.9717514124293786,
+    "macro avg": {
+      "precision": 0.9576648841354723,
+      "recall": 0.9839743589743589,
+      "f1-score": 0.9699241033926632,
+      "support": 177.0
+    },
+    "weighted avg": {
+      "precision": 0.973571709115079,
+      "recall": 0.9717514124293786,
+      "f1-score": 0.9718738296728465,
+      "support": 177.0
+    }
+  },
+  "umbrales": [
+    {
+      "umbral": 0.5,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.952
+    },
+    {
+      "umbral": 0.55,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.942
+    },
+    {
+      "umbral": 0.6,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.942
+    },
+    {
+      "umbral": 0.65,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.923
+    },
+    {
+      "umbral": 0.7,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.923
+    },
+    {
+      "umbral": 0.75,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.913
+    },
+    {
+      "umbral": 0.8,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.894
+    },
+    {
+      "umbral": 0.85,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.894
+    },
+    {
+      "umbral": 0.9,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.885
+    },
+    {
+      "umbral": 0.95,
+      "falsos_bloqueos": 0,
+      "recall_objeto": 0.846
+    }
+  ],
+  "umbral_recomendado": 0.5
+}

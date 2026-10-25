@@ -1,0 +1,41 @@
+{
+  "algoritmo": "LocalOutlierFactor(n_neighbors=35, novelty=True) + StandardScaler",
+  "features": [
+    "temperatura",
+    "humedad",
+    "calefaccion",
+    "ventilacion",
+    "rotacion",
+    "d_temp",
+    "d_hum"
+  ],
+  "umbral": 1.6313618069219338,
+  "metricas_test": {
+    "umbral": 1.6314,
+    "precision": 0.8494,
+    "recall": 0.9865,
+    "f1": 0.9128,
+    "auc_roc": 0.9801
+  },
+  "comparacion": [
+    {
+      "modelo": "IsolationForest",
+      "umbral": 0.5048,
+      "precision": 0.5808,
+      "recall": 0.783,
+      "f1": 0.6669,
+      "auc_roc": 0.8741
+    },
+    {
+      "modelo": "LOF",
+      "umbral": 1.6314,
+      "precision": 0.8494,
+      "recall": 0.9865,
+      "f1": 0.9128,
+      "auc_roc": 0.9801
+    }
+  ],
+  "n_train": 18171,
+  "n_test": 5083,
+  "anomalias_test": 1189
+}

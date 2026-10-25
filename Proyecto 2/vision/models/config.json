@@ -1,0 +1,15 @@
+{
+  "classes": [
+    "huevo",
+    "objeto",
+    "vacio"
+  ],
+  "roi": [
+    0.142,
+    0.052,
+    0.819,
+    0.942
+  ],
+  "size": 224,
+  "threshold": 0.5
+}

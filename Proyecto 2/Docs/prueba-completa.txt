@@ -1,0 +1,765 @@
+===============================================================================
+  SMARTEGG - PRUEBA COMPLETA DEL PROYECTO (SIN ARDUINO)
+===============================================================================
+
+  Recorre TODO el sistema de punta a punta usando el simulador del nodo en
+  lugar del Arduino: firmware simulado -> serial -> backend -> MongoDB + MQTT
+  -> API REST -> frontend + Grafana.
+
+  Lo unico que hace falta en la maquina es Docker. Ni Python ni Node: todo
+  corre en contenedores, incluido el simulador.
+
+  Duracion: unos 25 minutos la primera vez.
+  Todos los comandos se corren parados en:  Proyecto_1/infra
+
+  Marca con [X] lo que te vaya saliendo. Si algo falla, la seccion 12 tiene
+  los sintomas conocidos.
+
+
+===============================================================================
+  0. POR QUE EL SIMULADOR VA DENTRO DEL CONTENEDOR
+===============================================================================
+
+  El simulador crea un "puerto serial virtual" (un pty) y escribe ahi las
+  mismas lineas JSON que mandaria el Arduino de verdad.
+
+  Un pty NO se puede compartir entre contenedores ni con la maquina anfitriona.
+  Asi que si el backend corre en Docker, el simulador tiene que correr DENTRO
+  de ese mismo contenedor. Por eso los comandos son:
+
+      docker compose exec -d backend python tools/fake_serial.py
+
+  La carpeta tools/ no esta dentro de la imagen (la imagen se mantiene liviana):
+  se monta de solo lectura desde el repositorio, ya configurado en el compose.
+
+  UN DETALLE QUE IMPORTA
+  ----------------------
+  El numero del pty (/dev/pts/0, /dev/pts/1, ...) NO es estable: depende de que
+  otra cosa haya pedido uno antes, y cada sesion `docker exec` con terminal se
+  lleva uno. Si el backend apuntara a /dev/pts/0 fijo, tarde o temprano
+  terminaria escuchando un pty que no es el del simulador: diria "conectado"
+  y no recibiria una sola lectura.
+
+  Por eso el simulador crea un enlace de nombre fijo:
+
+      /tmp/smartegg-serial  ->  el pty que le haya tocado
+
+  y el backend apunta siempre ahi. Es lo que ya trae SERIAL_PORT en .env.
+
+
+===============================================================================
+  1. PREPARACION
+===============================================================================
+
+  [ ] 1.1  Parado en Proyecto_1/infra, con el archivo .env creado:
+
+           cp .env.example .env
+
+           Si ya lo tenias, revisa que tenga estos cuatro valores, que son
+           los que necesita el simulador:
+
+               SERIAL_ENABLED=true
+               SERIAL_PORT=/tmp/smartegg-serial
+               SERIAL_AUTO_DETECT=false
+               MONGO_REQUIRED=false
+
+  [ ] 1.2  Cambia las claves antes de nada (quedan grabadas en la base la
+           primera vez que arranca; despues el .env ya no las cambia):
+
+               JWT_SECRET=<algo largo>     generalo con: openssl rand -hex 32
+               ADMIN_PASSWORD=<la tuya>
+               OP1_PASSWORD=<la tuya>
+               OP2_PASSWORD=<la tuya>
+               GRAFANA_ADMIN_PASSWORD=<la tuya>
+
+  [ ] 1.3  Si el 1883 ya esta ocupado (pasa si tenes mosquitto instalado como
+           servicio del sistema), cambia en .env:
+
+               MQTT_PORT_HOST=11883
+
+           Eso solo cambia el puerto que se publica hacia tu maquina. Entre
+           contenedores se sigue usando el 1883, asi que no rompe nada.
+
+           Para saber si esta ocupado:   ss -lntp | grep 1883
+
+
+===============================================================================
+  2. LEVANTAR LA PLATAFORMA
+===============================================================================
+
+  [ ] 2.1  ./plataforma.sh arriba
+
+           La primera vez tarda 3-6 minutos porque compila las imagenes del
+           backend y del frontend. Espera sola a que los servicios queden
+           listos: si no esperara, el siguiente paso daria 502 con todo bien.
+
+  [ ] 2.2  Los seis servicios en pie y sanos:
+
+               docker compose ps
+
+           Se esperan: backend, caddy, frontend, grafana, mongo y mosquitto.
+           Los cinco con sonda deben decir (healthy). Grafana no tiene sonda,
+           con que diga Up alcanza.
+
+  [ ] 2.3  ./plataforma.sh verificar
+
+           Catorce comprobaciones. Tienen que salir todas OK. Todavia no hay
+           datos del nodo: eso es lo que sigue.
+
+
+===============================================================================
+  3. ENCENDER EL NODO SIMULADO
+===============================================================================
+
+  [ ] 3.1  Lanzar el simulador dentro del contenedor del backend:
+
+               docker compose exec -d backend python tools/fake_serial.py
+
+           El -d lo deja corriendo en segundo plano y te devuelve la terminal.
+
+           Si preferis verlo escupir lineas, corre esto en OTRA terminal, sin
+           el -d, y dejala abierta:
+
+               docker compose exec backend python tools/fake_serial.py
+
+  [ ] 3.2  Comprobar que el backend lo agarro (tarda hasta 5 segundos, que es
+           lo que espera entre reintentos):
+
+               curl -s http://localhost:8080/health
+
+           Tiene que responder los cuatro en true:
+
+               {"backend":"ok","base_datos":true,"mqtt":true,"serial":true}
+
+           Si "serial" sigue en false, mira la seccion 12.
+
+  [ ] 3.3  Verlo en el log:
+
+               docker compose logs backend | grep -i serial
+
+           Debe aparecer:
+               Conectado al nodo fisico en /tmp/smartegg-serial a 9600 baudios
+
+  [ ] 3.4  Comprobar que el backend REALMENTE esta recibiendo, no solo que
+           dice estar conectado. Este es el chequeo que de verdad distingue:
+
+               curl -s http://localhost:8080/api/sensores/estado
+
+           "ultima_lectura_recibida" NO puede ser null, y en
+           "sensores_activos" los cinco tienen que estar en true.
+
+           Si sale null con "serial_conectado": true, el backend abrio un
+           puerto que no es el del simulador. Mira la seccion 15.
+
+  VARIANTES DEL SIMULADOR
+  -----------------------
+  Se le pueden pasar opciones. Utiles para la defensa:
+
+      --intervalo 1        una lectura por segundo (por defecto son 2)
+      --escenario alarma   fuerza que se salga de rango y vuelva, para ver
+                           las alarmas abrirse y cerrarse
+      --escenario caotico  valores muy erraticos
+      --puerta-cada 10     evento de puerta cada 10 lecturas (0 = nunca)
+
+  Ejemplo:
+
+      docker compose exec -d backend python tools/fake_serial.py \
+        --intervalo 1 --escenario alarma
+
+
+===============================================================================
+  4. QUE LOS DATOS ESTEN LLEGANDO
+===============================================================================
+
+  [ ] 4.1  Dejalo correr un par de minutos y mira la ultima lectura:
+
+               curl -s http://localhost:8080/api/sensores/actual
+
+           Tiene que traer temperatura, humedad, espacios_libres y el estado
+           de los actuadores, con un timestamp reciente.
+
+  [ ] 4.2  Que se esten guardando en la base:
+
+               docker compose exec -T mongo mongosh smartegg --quiet --eval \
+                 'print("lecturas: " + db.lecturas.countDocuments())'
+
+           Correlo dos veces con un minuto de diferencia: el numero tiene que
+           subir. Si no sube, no esta persistiendo.
+
+  [ ] 4.3  Las otras colecciones se van llenando solas:
+
+               docker compose exec -T mongo mongosh smartegg --quiet --eval \
+                 'print("alarmas:   " + db.alarmas.countDocuments());
+                  print("aperturas: " + db.aperturas_puerta.countDocuments());
+                  print("usuarios:  " + db.usuarios.countDocuments())'
+
+           usuarios tiene que dar 3 (admin, operador1 y operador2), creados
+           solos en el primer arranque.
+
+
+===============================================================================
+  5. LA API Y LA AUTENTICACION
+===============================================================================
+
+  Lo mas comodo es la documentacion interactiva:
+
+               http://localhost:8080/api/docs
+
+  Ahi se puede ejecutar cada endpoint. Para los protegidos: ejecutar primero
+  POST /api/auth/login, copiar el token de la respuesta, pegarlo en el boton
+  "Authorize" de arriba, y Swagger lo manda solo en todo lo demas.
+
+  Si preferis la terminal, guardate un token en una variable:
+
+      TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+        -H 'Content-Type: application/json' \
+        -d '{"username":"admin","password":"TU_ADMIN_PASSWORD"}' \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+  [ ] 5.1  Lectura publica (sin token). Debe responder 200:
+
+               curl -s http://localhost:8080/api/sensores/historial?limit=5
+
+  [ ] 5.2  Escritura sin token. Debe responder 401:
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 -X POST http://localhost:8080/api/lotes \
+                 -H 'Content-Type: application/json' \
+                 -d '{"codigo":"X","nombre_lote":"Y","cantidad_huevos":1}'
+
+  [ ] 5.3  Dar de alta los dos operadores (solo el admin puede). 201 cada uno:
+
+               curl -s -X POST http://localhost:8080/api/operadores \
+                 -H "Authorization: Bearer $TOKEN" \
+                 -H 'Content-Type: application/json' \
+                 -d '{"id_operador":"OP1","nombre":"Operador Uno","uid_rfid":"A1B2C3D4"}'
+
+               curl -s -X POST http://localhost:8080/api/operadores \
+                 -H "Authorization: Bearer $TOKEN" \
+                 -H 'Content-Type: application/json' \
+                 -d '{"id_operador":"OP2","nombre":"Operador Dos","uid_rfid":"E5F6A7B8"}'
+
+  [ ] 5.4  Crear un lote. 201:
+
+               curl -s -X POST http://localhost:8080/api/lotes \
+                 -H "Authorization: Bearer $TOKEN" \
+                 -H 'Content-Type: application/json' \
+                 -d '{"codigo":"L-2026-01","nombre_lote":"Lote de prueba",
+                      "cantidad_huevos":24,"raza":"Rhode Island","responsable":"Tu nombre"}'
+
+  [ ] 5.5  Un operador NO puede crear operadores. Debe dar 403:
+
+               TOP1=$(curl -s -X POST http://localhost:8080/api/auth/login \
+                 -H 'Content-Type: application/json' \
+                 -d '{"username":"operador1","password":"TU_OP1_PASSWORD"}' \
+                 | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 -X POST http://localhost:8080/api/operadores \
+                 -H "Authorization: Bearer $TOP1" \
+                 -H 'Content-Type: application/json' \
+                 -d '{"id_operador":"OP9","nombre":"Colado"}'
+
+  [ ] 5.6  AISLAMIENTO ENTRE OPERADORES. Este es el importante.
+
+           operador1 pide SU reporte -> 200:
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 -H "Authorization: Bearer $TOP1" \
+                 http://localhost:8080/api/reportes/pdf/operador/OP1
+
+           operador1 pide el de OP2 -> 403:
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 -H "Authorization: Bearer $TOP1" \
+                 http://localhost:8080/api/reportes/pdf/operador/OP2
+
+           El admin pide el de OP2 -> 200:
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 -H "Authorization: Bearer $TOKEN" \
+                 http://localhost:8080/api/reportes/pdf/operador/OP2
+
+
+===============================================================================
+  6. LOS REPORTES PDF
+===============================================================================
+
+  [ ] 6.1  Reporte general:
+
+               curl -s -o reporte.pdf http://localhost:8080/api/reportes/pdf
+               file reporte.pdf
+
+           Debe decir "PDF document". Abrilo: trae las estadisticas del
+           periodo, las alarmas y la actividad de puerta.
+
+  [ ] 6.2  Reporte de un operador:
+
+               curl -s -o reporte-op1.pdf \
+                 -H "Authorization: Bearer $TOP1" \
+                 http://localhost:8080/api/reportes/pdf/operador/OP1
+
+           Si da 404, es que ese operador no esta dado de alta: volve al 5.3.
+
+
+===============================================================================
+  7. LAS CONSULTAS HISTORICAS
+===============================================================================
+
+  Son las que alimentan los dashboards. Devuelven datos ya agregados por
+  MongoDB, no listas crudas. Todas son publicas.
+
+  [ ] 7.1  Serie temporal agrupada cada 5 minutos:
+
+               curl -s "http://localhost:8080/api/historico/series?intervalo=5"
+
+           Trae "series" con un punto por bloque: promedio, minimo y maximo
+           de temperatura y humedad, cuantas lecturas y cuantas en alarma.
+
+  [ ] 7.2  Resumen por dia:
+
+               curl -s "http://localhost:8080/api/historico/diario?dias=7"
+
+  [ ] 7.3  Alarmas agrupadas por tipo, con su duracion:
+
+               curl -s "http://localhost:8080/api/historico/alarmas"
+
+  [ ] 7.4  Actividad de cada operador en la puerta:
+
+               curl -s "http://localhost:8080/api/historico/operadores"
+
+  [ ] 7.5  Condiciones durante la incubacion del lote que creaste:
+
+               LOTE=$(curl -s http://localhost:8080/api/lotes \
+                 | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['id'])")
+               curl -s "http://localhost:8080/api/historico/lote/$LOTE"
+
+           OJO: las lecturas no llevan lote_id. El nodo mide la incubadora, no
+           sabe que lote hay dentro, asi que el cruce se hace por la ventana
+           de tiempo entre la fecha de ingreso del lote y ahora.
+
+
+===============================================================================
+  8. EL TIEMPO REAL POR MQTT
+===============================================================================
+
+  [ ] 8.1  Escuchar todos los topicos desde el broker:
+
+               docker compose exec -T mosquitto \
+                 mosquitto_sub -h localhost -t 'smartegg/#' -v -C 20
+
+           Se cortan solos a los 20 mensajes. Tienen que aparecer:
+
+               smartegg/incubadora-01/sensores/lectura
+               smartegg/incubadora-01/sensores/temperatura
+               smartegg/incubadora-01/sensores/humedad
+               smartegg/incubadora-01/actuadores/estado
+               smartegg/incubadora-01/alarmas/critica
+               smartegg/incubadora-01/puerta/evento
+               smartegg/incubadora-01/status
+
+  [ ] 8.2  Los mensajes retained: al conectarse de nuevo, el ultimo valor
+           conocido llega de inmediato aunque el nodo lleve rato callado.
+
+               docker compose exec -T mosquitto mosquitto_sub -h localhost \
+                 -t 'smartegg/incubadora-01/sensores/temperatura' -C 1 -W 3
+
+           Tiene que responder al instante, no esperar a la siguiente lectura.
+
+  [ ] 8.3  El mismo camino que usa el navegador, por WebSocket y por el proxy:
+
+               ./verificar.sh
+
+           La linea del WebSocket tiene que decir 101 Switching Protocols.
+           Ese es el upgrade: si sale 101, el frontend puede conectarse.
+
+
+===============================================================================
+  9. EL FRONTEND
+===============================================================================
+
+  Abrir:   http://localhost:8080
+
+  [ ] 9.1  LOGIN. Entrar como admin. Con la clave mal debe rechazar sin decir
+           si el usuario existe o no.
+
+  [ ] 9.2  DASHBOARD (/). Temperatura y humedad moviendose solas. El indicador
+           de conexion en verde. Si el simulador esta corriendo, los numeros
+           cambian sin recargar la pagina.
+
+  [ ] 9.3  La INCUBADORA 3D. Se puede girar con el mouse. Los huevos que
+           muestra salen de espacios_libres, asi que cambian cuando el
+           simulador emite un evento de puerta.
+
+  [ ] 9.4  HISTORIAL (/historial). Las graficas con datos, y los filtros de
+           tiempo respondiendo.
+
+  [ ] 9.5  ALARMAS (/alarmas). Con --escenario alarma deberian ir apareciendo.
+           Cuando entra una nueva salta un aviso arriba sin recargar: eso
+           llega por MQTT, no por consultas repetidas.
+
+  [ ] 9.6  LOTES (/lotes). Crear uno desde el formulario. Probar a dejar
+           campos vacios: tiene que quejarse antes de mandar nada. Editarlo
+           y borrarlo.
+
+  [ ] 9.7  OPERADORES (/operadores). Esta pagina solo la ve el admin.
+
+  [ ] 9.8  PERFIL (/perfil). Los datos de la sesion y el boton para cambiar
+           la clave.
+
+  [ ] 9.9  REPORTES (/reportes). Descargar el PDF desde el navegador.
+
+  [ ] 9.10 AISLAMIENTO EN LA INTERFAZ. Cerrar sesion y entrar como operador1:
+           - No debe aparecer Operadores en el menu lateral.
+           - Si escribis /operadores a mano en la barra de direcciones, te
+             tiene que sacar.
+           - En Reportes solo debe poder bajar el suyo.
+
+  [ ] 9.11 RECARGA DIRECTA. Estando en /lotes, apreta F5. Tiene que volver a
+           cargar la pagina, no dar 404. (Eso es el try_files de Nginx.)
+
+
+===============================================================================
+  10. GRAFANA
+===============================================================================
+
+  Abrir:   http://localhost:8080/grafana/
+
+  OJO: localhost:3000 a secas da 404. Grafana esta servida bajo subruta.
+
+  Usuario admin, con GRAFANA_ADMIN_PASSWORD del .env. Esa clave solo se aplica
+  la PRIMERA vez que Grafana crea su base interna; si la cambiaste desde la
+  interfaz, manda esa.
+
+  [ ] 10.1 En Dashboards tiene que estar la carpeta SmartEgg con dos, cargados
+           solos. No hay que importar nada.
+
+  [ ] 10.2 SMARTEGG - TIEMPO REAL. Se refresca solo cada 5 segundos. Siete
+           paneles: temperatura, humedad y espacios libres ahora, estado de los
+           actuadores, los ultimos 15 minutos, alarmas recientes y accesos.
+
+           Los numeros de arriba tienen que cambiar solos mientras lo miras.
+           Si esta todo vacio, no hay lecturas llegando: revisa el paso 3.4.
+
+           OJO, esto se pregunta en la defensa: el dashboard tiene DOS origenes
+           y estan separados a proposito en dos filas.
+
+           La fila de arriba ("Tiempo real desde el broker MQTT") se suscribe
+           DIRECTAMENTE al broker con el datasource grafana-mqtt-datasource:
+           temperatura y humedad en vivo, actuadores y el online/offline del
+           LWT. Los datos llegan por push (Grafana Live), no por refresco: si
+           pones el refresco del dashboard en "Off" los puntos siguen entrando.
+
+           La fila de abajo consulta la API REST sobre la base de datos, para
+           el contexto que no viaja por telemetria (alarmas y accesos).
+
+           El plugin va FIJADO en la version 1.2.1. Con la linea 1.3.x la
+           suscripcion falla con "invalid orgId supplied in request": es el bug
+           abierto grafana/mqtt-datasource#361, el plugin arma el canal y luego
+           rechaza el orgId que el mismo puso. Comprobado: mismo canal y misma
+           consulta, 1.3.6 falla y 1.2.1 hace streaming.
+
+           Si alguien toca la version, ojo: los plugins viven en el volumen
+           grafana_data y el entrypoint respeta el ya instalado, asi que hay
+           que cambiarla en el .env (GRAFANA_PLUGINS) y levantar de nuevo, no
+           instalarla a mano dentro del contenedor.
+
+  [ ] 10.3 SMARTEGG - HISTORICO. Cinco paneles. Ajusta el rango de arriba a la
+           derecha a "Last 1 hour". Probar los dos selectores de arriba:
+           "Agrupar cada" y "Dias del resumen"; los paneles tienen que
+           recalcularse.
+
+  [ ] 10.4 En Connections > Data sources tienen que estar los dos:
+           SmartEgg MQTT y SmartEgg API, ambos con "Save & test" en verde.
+
+           Si sale "SmartEgg API plugin failed / error loading
+           react/jsx-runtime", es que la version de Grafana es mas vieja que
+           la que pide el plugin Infinity. Las versiones estan fijadas en el
+           docker-compose.yml justamente para eso: Grafana 11.6.11 con
+           Infinity 4.0.0. No las cambies por separado.
+
+
+===============================================================================
+  11. LAS PRUEBAS AUTOMATICAS
+===============================================================================
+
+  Corren dentro del contenedor, sin instalar nada:
+
+  [ ] 11.1 Protocolo serial (18 casos):
+
+               docker compose exec -T backend python tools/test_protocolo.py
+
+  [ ] 11.2 Capa de datos contra Mongo real (52 casos). Usa una base aparte y
+           la borra al terminar, no toca tus datos:
+
+               docker compose exec -T backend python tools/test_db.py
+
+  [ ] 11.3 API y guardia de autorizacion (32 casos):
+
+               docker compose exec -T backend python tools/test_api.py
+
+  [ ] 11.4 Modo degradado, sin base de datos (22 casos):
+
+               docker compose exec -T backend python tools/test_degradado.py
+
+  Las cuatro tienen que terminar en "0 fallos".
+
+
+===============================================================================
+  12. PRUEBAS DE RESISTENCIA
+===============================================================================
+
+  Vale la pena hacerlas: son las preguntas tipicas de una defensa.
+
+  [ ] 12.1 QUE PASA SI SE CAE LA BASE DE DATOS
+
+               docker compose stop mongo
+               curl -s http://localhost:8080/health
+
+           El backend NO se cae. Responde con "base_datos":false y sigue
+           leyendo el serial y publicando por MQTT.
+
+           Las lecturas publicas siguen respondiendo 200:
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 http://localhost:8080/api/sensores/historial
+
+           Y una escritura CON token devuelve 503, no un error feo:
+
+               curl -s -o /dev/null -w "%{http_code}\n" \
+                 -X POST http://localhost:8080/api/lotes \
+                 -H "Authorization: Bearer $TOKEN" \
+                 -H 'Content-Type: application/json' \
+                 -d '{"codigo":"Z","nombre_lote":"Z","cantidad_huevos":1}'
+
+           (Sin token da 401, no 503: la autenticacion se revisa antes que
+           la base de datos.)
+
+           Levantala de nuevo y esperá unos segundos:
+
+               docker compose start mongo
+               curl -s http://localhost:8080/health
+
+           Vuelve a "base_datos":true SIN reiniciar el backend. Reconecta solo.
+
+  [ ] 12.2 QUE PASA SI EL NODO SE CAE DE GOLPE
+
+           Hay dos formas de apagarse, y el sistema las distingue.
+
+           APAGADO LIMPIO. El backend avisa el mismo antes de irse:
+
+               docker compose stop backend
+               docker compose exec -T mosquitto mosquitto_sub -h localhost \
+                 -t 'smartegg/incubadora-01/status' -C 1 -W 5
+
+           Responde con  "estado": "offline", "origen": "apagado_controlado"
+
+           CAIDA ABRUPTA (corte de corriente, cable arrancado). Aca el backend
+           no alcanza a avisar nada: quien publica el offline es el BROKER, por
+           el Last Will and Testament que el backend dejo registrado al
+           conectarse. Para provocarlo:
+
+               docker compose start backend
+               docker compose exec -d backend python tools/fake_serial.py
+               docker kill smartegg-backend
+               docker compose exec -T mosquitto mosquitto_sub -h localhost \
+                 -t 'smartegg/incubadora-01/status' -C 1 -W 6
+
+           Ahora responde con  "origen": "lwt"  y el momento en que se habia
+           conectado. Esta es la demostracion que vale: el sistema detecta que
+           el nodo murio aunque el nodo no haya podido decir nada.
+
+           Para recuperarte:
+
+               docker compose start backend
+               docker compose exec -d backend python tools/fake_serial.py
+
+  [ ] 12.3 QUE LOS DATOS SOBREVIVEN A UN REINICIO
+
+               docker compose exec -T mongo mongosh smartegg --quiet \
+                 --eval 'print(db.lecturas.countDocuments())'
+               ./plataforma.sh abajo
+               ./plataforma.sh arriba
+               docker compose exec -T mongo mongosh smartegg --quiet \
+                 --eval 'print(db.lecturas.countDocuments())'
+
+           El numero tiene que ser el mismo. Los volumenes conservan todo.
+
+  [ ] 12.4 TARJETA NO REGISTRADA
+
+           El firmware manda un evento cuando alguien pasa una tarjeta que no
+           esta dada de alta. Se puede simular:
+
+               docker compose exec -T backend python -c "
+           from src.serial.reader import serial_reader
+           serial_reader._procesar_linea('{\"evento\":\"tarjeta_no_registrada\",\"uid\":\"DEADBEEF\"}')
+           "
+
+           Queda registrado como intento fallido, y NO cuenta como apertura:
+
+               docker compose exec -T mongo mongosh smartegg --quiet --eval \
+                 'db.aperturas_puerta.find({accion:"denegado"}).limit(3).forEach(printjson)'
+
+
+===============================================================================
+  13. EXPONERLO A INTERNET
+===============================================================================
+
+  Solo cuando todo lo anterior este en verde.
+
+  [ ] 13.1 ./plataforma.sh publico
+
+           Imprime una URL tipo https://algo-random.trycloudflare.com
+
+  [ ] 13.2 Para que Grafana se vea bien desde afuera, poner esa URL en .env:
+
+               GRAFANA_ROOT_URL=https://algo-random.trycloudflare.com/grafana/
+
+           y recargar solo Grafana:
+
+               docker compose up -d grafana
+
+  [ ] 13.3 ./plataforma.sh verificar https://algo-random.trycloudflare.com
+
+  [ ] 13.4 Probalo desde el celular CON DATOS MOVILES, no con el wifi de la
+           casa: por wifi salis por la misma red y no estas probando nada.
+
+  OJO
+  ---
+  * La URL es aleatoria y CAMBIA cada vez que se levanta el tunel.
+  * Mientras el tunel este arriba, TODO esta en internet: la API, Grafana y el
+    broker (que hoy acepta conexiones anonimas). Cambia las claves antes y
+    apagalo apenas termines.
+  * Cloudflare corta las peticiones que pasan de 100 segundos, asi que el
+    stream SSE de /api/sensores/stream se corta. No importa: el frontend
+    reintenta solo por consultas normales y el tiempo real va por MQTT, que
+    no tiene ese limite.
+
+
+===============================================================================
+  14. APAGAR
+===============================================================================
+
+  [ ] 14.1 ./plataforma.sh abajo
+
+           Baja el tunel primero y despues el resto, en el orden correcto, y
+           conserva los volumenes.
+
+           NUNCA uses  docker compose down -v  salvo que quieras borrar todo:
+           ese -v destruye el historial de Mongo, los dashboards de Grafana,
+           su clave de admin y los mensajes retained del broker.
+
+
+===============================================================================
+  15. SI ALGO FALLA
+===============================================================================
+
+  "serial":false y el simulador esta corriendo
+      Revisa que en .env este SERIAL_PORT=/tmp/smartegg-serial y
+      SERIAL_AUTO_DETECT=false. Despues de cambiar el .env hay que recrear
+      el contenedor:
+          docker compose up -d backend
+      y volver a lanzar el simulador, porque el reinicio lo mata.
+      Comproba que el enlace exista:
+          docker compose exec -T backend ls -l /tmp/smartegg-serial
+
+  "serial":true pero "ultima_lectura_recibida": null
+      El backend abrio un puerto que no es el del simulador. Pasa si alguien
+      dejo SERIAL_PORT con un /dev/pts/N fijo: ese numero cambia. Poner
+      SERIAL_PORT=/tmp/smartegg-serial, recrear el backend y relanzar el
+      simulador.
+      Para ver a que esta conectado cada uno:
+          docker compose exec -T backend ls -l /tmp/smartegg-serial
+
+  El stream SSE no devuelve nada
+      Comproba primero que haya lecturas (el caso de arriba): si el backend
+      nunca recibio una, el stream no tiene nada que mandar. Con datos
+      fluyendo debe verse asi:
+          curl -sN --max-time 10 http://localhost:8080/api/sensores/stream
+      Empieza con ": conectado" y despues una linea "data:" por lectura.
+      Igual no es critico: el frontend cae solo a consultas normales cada
+      3 segundos si el stream falla.
+
+  El simulador no arranca: "can't open file '/app/tools/fake_serial.py'"
+      Falta el montaje de tools/. Comproba que el servicio backend del
+      docker-compose.yml tenga:
+          volumes:
+            - ../Backend/tools:/app/tools:ro
+      y recrea el contenedor con  docker compose up -d backend
+
+  Todo da 502 justo despues de levantar
+      El proxy ya responde pero gunicorn todavia no. Espera unos segundos.
+      ./plataforma.sh arriba ya espera solo; si corriste docker compose a
+      mano, la espera no ocurre.
+
+  "port 1883 already in use"
+      Tenes mosquitto instalado como servicio del sistema.
+          sudo systemctl stop mosquitto
+      o en .env:  MQTT_PORT_HOST=11883
+
+  "network ... not found" al levantar el tunel
+      Quedo un contenedor viejo del tunel apuntando a una red que ya no
+      existe. Pasa si se apago con "docker compose down" a secas.
+          docker rm -f smartegg-tunel
+          ./plataforma.sh publico
+
+  El build falla con "Temporary failure in name resolution"
+      Docker no resuelve DNS dentro de los contenedores.
+          echo '{"dns":["1.1.1.1","8.8.8.8"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+  "npm ci can only install packages when your package.json and
+   package-lock.json are in sync"
+      Alguien agrego una dependencia sin actualizar el lock. En Frontend:
+          npm install --package-lock-only
+      y commitear el package-lock.json.
+
+  El frontend carga pero no trae datos, o la consola dice "Mixed Content"
+      El frontend usa rutas relativas (/api, /mqtt) a proposito. Si alguien
+      puso una URL absoluta en Frontend/.env (VITE_API_BASE_URL o
+      VITE_MQTT_WS_URL), quitala.
+
+  No puedo entrar a Grafana
+      GRAFANA_ADMIN_PASSWORD solo se aplica la PRIMERA vez que Grafana crea
+      su base interna. Para resetearla:
+          docker compose exec grafana grafana cli admin reset-admin-password 'nueva'
+      Ademas bloquea al usuario 5 minutos despues de 5 intentos fallidos.
+
+  Los paneles de Grafana estan vacios
+      Tiempo real: el simulador no esta corriendo. Volve al paso 3.1.
+      Historico: el rango de tiempo no cubre fechas con datos. Comproba que
+      haya con:
+          curl -s "http://localhost:8080/api/historico/diario?dias=30"
+
+  "It looks like you are trying to access MongoDB over HTTP..."
+      Algo esta apuntando al 27017 por HTTP. Ese puerto habla el protocolo
+      nativo de Mongo, no HTTP. Para mirar la base se usa mongosh; el
+      historico se consulta por la API, no contra la base.
+
+  El backend responde cosas viejas
+      La imagen quedo desactualizada respecto al codigo.
+          docker compose up -d --build backend
+
+
+===============================================================================
+  16. VOLVER AL ARDUINO DE VERDAD
+===============================================================================
+
+  Cuando tengas el nodo fisico, en .env:
+
+      SERIAL_PORT=/dev/ttyACM0        un Mega 2560 suele ser ACM0, no USB0
+      SERIAL_AUTO_DETECT=true
+
+  y descomentar el bloque `devices:` del servicio backend en
+  docker-compose.yml. Para saber cual es el puerto:
+
+      ls -l /dev/ttyACM* /dev/ttyUSB*
+
+  Si el usuario no tiene permiso:
+
+      sudo usermod -aG dialout $USER      (y volver a iniciar sesion)
+
+  En Windows NO se puede pasar un COM a un contenedor Linux: ahi hay que
+  poner SERIAL_ENABLED=false y correr el backend aparte con python run.py.
+
+===============================================================================
